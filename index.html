@@ -955,10 +955,11 @@ async function ppFaceId(){
     <div><div class="bh-name">Friul Mosaic</div><div class="bh-sub">Handcrafted Mosaic · Friuli, Italy</div></div>
   </div>
   <div class="sub-grid">
-    <div class="sub-tile" onclick="openOrderLog('Friul Mosaic')">
-      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CB;</div>
-      <div class="sub-tile-name">Order Log</div>
-      <div class="sub-tile-desc">All supplier orders</div>
+    <!-- @@FRIUL-SALES-TILE@@ 2026-07-19 — replaces Order Log, same treatment as Agape's Sales by Client -->
+    <div class="sub-tile" onclick="openFriulSalesByClient()">
+      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4B6;</div>
+      <div class="sub-tile-name">Sales by Client</div>
+      <div class="sub-tile-desc">Confirmed orders, by client</div>
     </div>
     <div class="sub-tile" onclick="openFriulProjectFolders()">
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CB;</div>
@@ -969,6 +970,35 @@ async function ppFaceId(){
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4E6;</div>
       <div class="sub-tile-name">Samples</div>
       <div class="sub-tile-desc">Track shipments</div>
+    </div>
+  </div>
+
+  <!-- @@FRIUL-STATS@@ 2026-07-19 — Friul-only Total/Live Projects/Live Quotes, same style+position as Home's stats-row -->
+  <div class="stats-row home-stats">
+    <div class="stat" onclick="navFriulFolder('all')" style="cursor:pointer;"><div class="stat-n" id="friul-st-total">0</div><div class="stat-l">Total</div></div>
+    <div class="stat" onclick="navFriulFolder('live-projects')" style="cursor:pointer;"><div class="stat-n" id="friul-st-active">0</div><div class="stat-l">Live Projects</div></div>
+    <div class="stat" onclick="navFriulFolder('live-quotes')" style="cursor:pointer;"><div class="stat-n" id="friul-st-fu">0</div><div class="stat-l">Live Quotes</div></div>
+  </div>
+</div>
+
+<!-- @@FRIUL-SALES-SCREEN@@ 2026-07-19 — sales by client, derived from projects (no separate ledger like Agape), same visual language as Orders/Commissions tiles + Agape Sales by Client -->
+<div class="screen" id="friul-sales">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--friul)" onclick="nav('brand-friul')">&#x2190; Friul Mosaic</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Sales by Client</div></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:24px;">
+    <div class="snap-summary" id="friulSaleSummary"></div>
+    <div class="section-label" style="text-align:center;">By client</div>
+    <div style="padding:0 20px 8px;display:flex;justify-content:center;">
+      <div class="orders-tile" id="friulSaleTile" style="width:100%;max-width:560px;">
+        <div id="friulSaleRows"></div>
+        <div class="orders-divider"></div>
+        <div style="text-align:center;padding-top:8px;">
+          <span style="font-size:12px;color:var(--sub);">Total confirmed </span>
+          <span id="friulSaleTotal" style="font-size:18px;font-weight:600;color:var(--dark);">€0</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2036,8 +2066,8 @@ window.DD_EMBEDDED = {"projects":[{"id":"grassi-dbsj-astonmartin-london-001","na
 
 // Merge: load existing or start fresh, then inject any default projects not yet present
 let stored=JSON.parse(localStorage.getItem(PROJ_KEY)||"null");
-// Legacy default projects superseded by the auto-synced tracker (same projects, new ids) — never inject, always purge (fix 2026-07-19: they double-counted the Orders bar)
-const LEGACY_DUPES=["lfs-am-london-001","milman-road-001"];
+// Legacy default projects superseded by the auto-synced tracker (same projects, new ids) — never inject, always purge (fix 2026-07-19: they double-counted the Orders bar; bea-sa-mosaic-001 added 2026-07-19 — duplicate of friul-finchatton-bea-001, same €39,457 BEA SA/Finchatton deal, discovered while building the Friul stats tiles)
+const LEGACY_DUPES=["lfs-am-london-001","milman-road-001","bea-sa-mosaic-001"];
 if(!stored){
   stored=DEFAULT_PROJECTS.filter(dp=>!LEGACY_DUPES.includes(dp.id));
 } else {
@@ -2746,6 +2776,7 @@ function nav(id){
   if(id==="dd-clients") renderClientDirectory();
   if(id==="settings") nav_settings_open();
   if(id==="grassi-calc"){if(calcLines.length===0)calcAddLine();else calcRenderLines();}
+  if(id==="brand-friul") renderFriulStats();
   history_stack.push(id);
   // sync bottom nav
   document.querySelectorAll(".ni").forEach(n=>n.classList.remove("active"));
@@ -4311,6 +4342,59 @@ function fDs(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'
 function bCol(b){return b==='Grassi Pietre'?'#C4956A':b==='Friul Mosaic'?'#1D9E75':b==='Agape'?'#F5821E':b==='Avantgarde'?'#1B2F8A':'#C9A96E';}
 function gP(){return typeof projects!=='undefined'?projects:[];}
 function gS(){return typeof samples!=='undefined'?samples:[];}
+
+/* @@FRIUL-SALES-JS@@ Friul sales-by-client — derived from projects (no separate ledger like Agape), same visual language as Orders/Commissions tiles */
+function openFriulSalesByClient(){
+  nav('friul-sales');
+  var pal=['#1D9E75','#0F5041','#3FBF8F','#178F6B','#63CFA6','#0C6B4F','#2FA37D','#146349','#4FC29A','#0A5A3F','#57C79E','#1F7E5C'];
+  var STAGES=['Confirmed','In Production','Delivered','Invoiced','Ready to Ship','Snagging','Completed'];
+  var g=gP().filter(function(p){return p.brand==='Friul Mosaic'&&STAGES.includes(p.stage);});
+  var byClient={};
+  g.forEach(function(p){
+    var c=p.client||'Unknown';
+    var v=pEur(p.exvat||p.value||0);
+    byClient[c]=(byClient[c]||0)+v;
+  });
+  var clients=Object.keys(byClient).map(function(c){return {client:c,val:byClient[c]};}).filter(function(c){return c.val>0;}).sort(function(a,b){return b.val-a.val;});
+  var total=clients.reduce(function(s,c){return s+c.val;},0);
+
+  var su=document.getElementById('friulSaleSummary');
+  if(su)su.innerHTML='<div class="snap-card"><div class="snap-card-val" id="fsc-0">€0</div><div class="snap-card-lbl">Total Sales</div></div>'
+    +'<div class="snap-card"><div class="snap-card-val">'+clients.length+'</div><div class="snap-card-lbl">Clients</div></div>';
+
+  if(!clients.length){
+    var rEl0=document.getElementById('friulSaleRows'); if(rEl0)rEl0.innerHTML='<div style="font-size:12px;color:var(--light);padding:8px 20px;">No confirmed sales yet</div>';
+    var tEl0=document.getElementById('friulSaleTotal'); if(tEl0)tEl0.textContent='€0';
+    return;
+  }
+
+  var maxV=Math.max.apply(null,clients.map(function(c){return c.val;}));
+  var rowsEl=document.getElementById('friulSaleRows');
+  if(rowsEl)rowsEl.innerHTML=clients.map(function(c,i){
+    var col=pal[i%pal.length];
+    return '<div class="orders-brand-row">'
+      +'<div class="orders-brand-label"><span class="orders-brand-name">'+c.client+'</span>'
+      +'<span class="orders-brand-val" id="fsv-'+i+'">€0</span></div>'
+      +'<div class="orders-bar-bg"><div class="orders-bar-fill" id="fsb-'+i+'" style="background:'+col+';width:0%;"></div></div></div>';
+  }).join('');
+  var tEl=document.getElementById('friulSaleTotal'); if(tEl)tEl.textContent='€0';
+
+  var rows=clients.map(function(c,i){return {barId:'fsb-'+i,valId:'fsv-'+i,val:c.val,pct:maxV>0?(c.val/maxV*100):0};});
+  animateHomeTile('friulSaleTile',rows,'friulSaleTotal',total);
+  try{
+    var el=document.getElementById('fsc-0'); if(el)animateValue(el,0,total,1200,function(v,e){if(e)e.textContent='€'+Math.round(v).toLocaleString('en-GB');});
+  }catch(e){}
+}
+
+/* @@FRIUL-STATS-JS@@ Friul-only Total/Live Projects/Live Quotes, same stage buckets as openFriulProjectFolders() / the Home stats-row */
+function renderFriulStats(){
+  try{
+    var g=gP().filter(function(p){return p.brand==='Friul Mosaic';});
+    var elT=document.getElementById('friul-st-total'); if(elT)elT.textContent=g.length;
+    var elA=document.getElementById('friul-st-active'); if(elA)elA.textContent=g.filter(function(p){return ['Confirmed','In Production'].includes(p.stage);}).length;
+    var elF=document.getElementById('friul-st-fu'); if(elF)elF.textContent=g.filter(function(p){return ['Enquiry','Sample Sent','Quoted'].includes(p.stage);}).length;
+  }catch(e){}
+}
 
 /* @@AGAPE-SALES-JS@@ Agape sales-by-client — same visual language as Orders/Commissions tiles + Monthly Snapshot summary cards */
 function openAgapeSalesByClient(){
