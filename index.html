@@ -2872,9 +2872,17 @@ function renderProjects(list,containerId,filter){
     el.innerHTML=`<div class="empty"><div class="empty-i">📋</div><p>No projects yet.<br>Tap <strong>+ Add</strong> to create one.</p></div>`;
     return;
   }
+  // @@PROJ-CARD-SIMPLE@@ 2026-07-19 — brandProjectsList (Grassi/Friul Quotes·Live·Completed·All folders) shows name + client only for now; full card (brand badge, stage, next action) kept everywhere else (e.g. the global All Projects list). Project detail view is unchanged either way.
+  const simple=containerId==="brandProjectsList";
   el.innerHTML=list.map(p=>{
     const sc=SC[p.stage]||"s-e", bc=BC[p.brand]||"bb-dd";
     const _h=p._isAvJob?"nav('brand-av');setTimeout(()=>viewAvJob('"+p.id+"'),50)":"viewProject('"+p.id+"')";
+    if(simple){
+      return `<div class="proj-card" onclick="${_h}">
+        <div class="pct"><span class="pn">${p.name}</span></div>
+        <div class="pc" style="margin-bottom:0;">👤 ${p.client}</div>
+      </div>`;
+    }
     return `<div class="proj-card" onclick="${_h}">
       <div class="pct"><span class="pn">${p.name}</span><span class="bb ${bc}">${p.brand}</span></div>
       <div class="pc">👤 ${p.client}</div>
