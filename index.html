@@ -736,6 +736,23 @@ async function ppFaceId(){
       <div class="sub-tile-name">Quote Calculator</div>
       <div class="sub-tile-desc">Price any Grassi spec instantly</div>
     </div>
+    <!-- @@BRAND-COMMISSION-TILE@@ 2026-07-19 — placeholder, to be built out later -->
+    <div class="sub-tile" onclick="openGrassiCommission()">
+      <div class="sub-icon" style="background:var(--accent-soft);">💰</div>
+      <div class="sub-tile-name">Commission</div>
+      <div class="sub-tile-desc">Coming soon</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ GRASSI: COMMISSION (placeholder — to be built out later) ══════════ -->
+<div class="screen" id="grassi-commission">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--grassi)" onclick="nav('brand-grassi')">← Grassi Pietre</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Commission</div></div>
+  </div>
+  <div class="content-list">
+    <div class="empty"><div class="empty-i">💰</div><p>Commission tracking for Grassi Pietre is coming soon.</p></div>
   </div>
 </div>
 
@@ -748,6 +765,10 @@ async function ppFaceId(){
   </div>
   <div class="content-list">
     <div class="sub-grid" style="padding:16px 0 8px;">
+      <div class="sub-tile" onclick="navGrassiFolder('all')" style="border-top:3px solid var(--gold);">
+        <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
+        <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="gf-all-count">View everything</div>
+      </div>
       <div class="sub-tile" onclick="navGrassiFolder('live-quotes')" style="border-top:3px solid #F5821E;">
         <div class="sub-icon" style="background:#FEF0E6;font-size:22px;">💬</div>
         <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="gf-quotes-count">Enquiry · Quoted</div>
@@ -759,10 +780,6 @@ async function ppFaceId(){
       <div class="sub-tile" onclick="navGrassiFolder('completed')" style="border-top:3px solid #2E7D32;">
         <div class="sub-icon" style="background:#E8F5E9;font-size:22px;">✅</div>
         <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="gf-completed-count">Delivered</div>
-      </div>
-      <div class="sub-tile" onclick="navGrassiFolder('all')" style="border-top:3px solid var(--gold);">
-        <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
-        <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="gf-all-count">View everything</div>
       </div>
     </div>
   </div>
@@ -985,6 +1002,12 @@ async function ppFaceId(){
       <div class="sub-tile-name">Samples</div>
       <div class="sub-tile-desc">Track shipments</div>
     </div>
+    <!-- @@BRAND-COMMISSION-TILE@@ 2026-07-19 — placeholder, to be built out later -->
+    <div class="sub-tile" onclick="openFriulCommission()">
+      <div class="sub-icon" style="background:var(--accent-soft);">💰</div>
+      <div class="sub-tile-name">Commission</div>
+      <div class="sub-tile-desc">Coming soon</div>
+    </div>
   </div>
 
   <!-- @@FRIUL-STATS@@ 2026-07-19 — Friul-only Total/Live Projects/Live Quotes, same style+position as Home's stats-row -->
@@ -1016,6 +1039,17 @@ async function ppFaceId(){
     </div>
   </div>
 </div>
+<!-- ══ FRIUL: COMMISSION (placeholder — to be built out later) ═══════════ -->
+<div class="screen" id="friul-commission">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--friul)" onclick="nav('brand-friul')">← Friul Mosaic</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Commission</div></div>
+  </div>
+  <div class="content-list">
+    <div class="empty"><div class="empty-i">💰</div><p>Commission tracking for Friul Mosaic is coming soon.</p></div>
+  </div>
+</div>
+
 <!-- ══ FRIUL: PROJECT FOLDERS ════════════════════════════════════════════ -->
 <div id="friul-project-folders" class="screen">
   <div class="topbar">
@@ -1025,6 +1059,10 @@ async function ppFaceId(){
   </div>
   <div class="content-list">
     <div class="sub-grid" style="padding:16px 0 8px;">
+      <div class="sub-tile" onclick="navFriulFolder('all')" style="border-top:3px solid var(--gold);">
+        <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
+        <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="ff-all-count">View everything</div>
+      </div>
       <div class="sub-tile" onclick="navFriulFolder('live-quotes')" style="border-top:3px solid #F5821E;">
         <div class="sub-icon" style="background:#FEF0E6;font-size:22px;">💬</div>
         <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="ff-quotes-count">Enquiry · Quoted</div>
@@ -1036,10 +1074,6 @@ async function ppFaceId(){
       <div class="sub-tile" onclick="navFriulFolder('completed')" style="border-top:3px solid #2E7D32;">
         <div class="sub-icon" style="background:#E8F5E9;font-size:22px;">✅</div>
         <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="ff-completed-count">Delivered</div>
-      </div>
-      <div class="sub-tile" onclick="navFriulFolder('all')" style="border-top:3px solid var(--gold);">
-        <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
-        <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="ff-all-count">View everything</div>
       </div>
     </div>
   </div>
@@ -1204,6 +1238,34 @@ async function ppFaceId(){
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4B6;</div>
       <div class="sub-tile-name">Sales by Client</div>
       <div class="sub-tile-desc">2025 vs 2026, by client</div>
+    </div>
+    <!-- @@BRAND-COMMISSION-TILE@@ 2026-07-19 — Agape only: 8% of each client's 2026 sales, same graph pattern as Sales by Client -->
+    <div class="sub-tile" onclick="openAgapeCommissionByClient()">
+      <div class="sub-icon" style="background:var(--accent-soft);">💰</div>
+      <div class="sub-tile-name">Commission</div>
+      <div class="sub-tile-desc">8% of 2026 sales, by client</div>
+    </div>
+  </div>
+</div>
+
+<!-- @@AGAPE-COMMISSION-VALUE-SCREEN@@ 2026-07-19 — 8% commission by client, computed from agapeSalesByClient; distinct from the pre-existing manual #agape-commission calculator (unused/orphaned tile-wise, left untouched) -->
+<div class="screen" id="agape-commission-value">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--agape)" onclick="nav('brand-agape')">&#x2190; Agape</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Commission</div></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:24px;">
+    <div class="snap-summary" id="agapeCommValSummary"></div>
+    <div class="section-label" style="text-align:center;">2026 commission (8% of sales), by client</div>
+    <div style="padding:0 20px 8px;display:flex;justify-content:center;">
+      <div class="orders-tile" id="agapeCommValTile" style="width:100%;max-width:560px;">
+        <div id="agapeCommValRows"></div>
+        <div class="orders-divider"></div>
+        <div style="text-align:center;padding-top:8px;">
+          <span style="font-size:12px;color:var(--sub);">Total commission 2026 </span>
+          <span id="agapeCommValTotal" style="font-size:18px;font-weight:600;color:var(--dark);">€0</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -4468,6 +4530,54 @@ var PROJ_VALUE_GRAPH_LABELS={
   'live-projects':{totalCardLbl:'Total Value',countLbl:'Projects',footerLbl:'Total value'},
   'completed':{totalCardLbl:'Total Completed',countLbl:'Projects',footerLbl:'Total completed'}
 };
+
+/* @@BRAND-COMMISSION-JS@@ 2026-07-19 — placeholder tiles for Grassi/Friul, to be built out later once commission data/rates are confirmed for those brands */
+function openGrassiCommission(){nav('grassi-commission');}
+function openFriulCommission(){nav('friul-commission');}
+
+/* @@AGAPE-COMMISSION-VALUE-JS@@ 2026-07-19 — Agape commission by client: 8% of each client's 2026 sales (agapeSalesByClient), same visual language as Sales by Client. Provisional rate — the pre-existing manual calculator (openAgapeCommission()) defaults to a configurable 15%; Michele confirmed 8% specifically for this per-client 2026 view. */
+var AGAPE_COMMISSION_RATE=0.08;
+function openAgapeCommissionByClient(){
+  nav('agape-commission-value');
+  var pal=['#F5821E','#C4550A','#F5A15C','#D96B1F','#E89550','#B8600F','#F0A470','#C77930','#E68A3F','#A85512','#F2B486','#D47E3A'];
+  var sd=window.DD_EMBEDDED&&window.DD_EMBEDDED.agapeSalesByClient;
+  var su=document.getElementById('agapeCommValSummary');
+  var rowsEl0=document.getElementById('agapeCommValRows');
+  if(!sd||!sd.clients||!sd.clients.length){
+    if(su)su.innerHTML='';
+    if(rowsEl0)rowsEl0.innerHTML='<div style="font-size:12px;color:var(--light);padding:8px 20px;">No sales data yet</div>';
+    var tEl0=document.getElementById('agapeCommValTotal'); if(tEl0)tEl0.textContent='€0';
+    return;
+  }
+  var clients=sd.clients.map(function(c){return {client:c.client,val:(c.ord2026||0)*AGAPE_COMMISSION_RATE};}).filter(function(c){return c.val>0;}).sort(function(a,b){return b.val-a.val;});
+  var total=clients.reduce(function(s,c){return s+c.val;},0);
+
+  if(su)su.innerHTML='<div class="snap-card"><div class="snap-card-val" id="acv-total-card">€0</div><div class="snap-card-lbl">Total Commission</div></div>'
+    +'<div class="snap-card"><div class="snap-card-val">'+(AGAPE_COMMISSION_RATE*100).toFixed(0)+'%</div><div class="snap-card-lbl">Rate</div></div>';
+
+  if(!clients.length){
+    if(rowsEl0)rowsEl0.innerHTML='<div style="font-size:12px;color:var(--light);padding:8px 20px;">No confirmed sales yet</div>';
+    var tEl1=document.getElementById('agapeCommValTotal'); if(tEl1)tEl1.textContent='€0';
+    return;
+  }
+
+  var maxV=Math.max.apply(null,clients.map(function(c){return c.val;}));
+  var rowsEl=document.getElementById('agapeCommValRows');
+  if(rowsEl)rowsEl.innerHTML=clients.map(function(c,i){
+    var col=pal[i%pal.length];
+    return '<div class="orders-brand-row">'
+      +'<div class="orders-brand-label"><span class="orders-brand-name">'+c.client+'</span>'
+      +'<span class="orders-brand-val" id="acvv-'+i+'">€0</span></div>'
+      +'<div class="orders-bar-bg"><div class="orders-bar-fill" id="acvb-'+i+'" style="background:'+col+';width:0%;"></div></div></div>';
+  }).join('');
+  var tEl=document.getElementById('agapeCommValTotal'); if(tEl)tEl.textContent='€0';
+
+  var rows=clients.map(function(c,i){return {barId:'acvb-'+i,valId:'acvv-'+i,val:c.val,pct:maxV>0?(c.val/maxV*100):0};});
+  animateHomeTile('agapeCommValTile',rows,'agapeCommValTotal',total);
+  try{
+    var el=document.getElementById('acv-total-card'); if(el)animateValue(el,0,total,1200,function(v,e){if(e)e.textContent='€'+Math.round(v).toLocaleString('en-GB');});
+  }catch(e){}
+}
 
 /* @@AGAPE-SALES-JS@@ Agape sales-by-client — same visual language as Orders/Commissions tiles + Monthly Snapshot summary cards */
 function openAgapeSalesByClient(){
