@@ -1248,7 +1248,7 @@ async function ppFaceId(){
   </div>
 </div>
 
-<!-- @@AGAPE-COMMISSION-VALUE-SCREEN@@ 2026-07-19 — 8% commission by client, computed from agapeSalesByClient; distinct from the pre-existing manual #agape-commission calculator (unused/orphaned tile-wise, left untouched) -->
+<!-- @@AGAPE-COMMISSION-VALUE-SCREEN@@ 2026-07-19 — 8% commission by client, computed from agapeSalesByClient. The old orphaned manual "Commission Calculator" (#agape-commission, 15% default rate, unreachable from any tile) was removed 2026-07-19 per Michele — this is the only Agape commission screen now. -->
 <div class="screen" id="agape-commission-value">
   <div class="topbar">
     <button class="tb-back" style="color:var(--agape)" onclick="nav('brand-agape')">&#x2190; Agape</button>
@@ -4368,16 +4368,6 @@ function checkTrackingManual(){
   </div>
 </div>
 
-<div class="screen" id="agape-commission">
-  <div class="topbar"><button class="tb-back" style="color:var(--agape)" onclick="nav('brand-agape')">&#x2190; Agape</button><div style="flex:1;text-align:center;"><div class="tb-title">Commission Calculator</div></div></div>
-  <div style="flex:1;overflow-y:auto;padding-top:14px;padding-bottom:24px;">
-    <div class="comm-rate-box"><div class="comm-rate-label">Your Commission Rate</div><div class="comm-rate-row"><input class="comm-rate-input" id="commRate" type="number" min="1" max="50" step="0.5" value="15" oninput="commCalc()"><span class="comm-rate-pct">%</span><div class="comm-rate-hint">Change any time &amp; tap Save.</div><button class="comm-save-btn" onclick="commSave()">Save</button></div></div>
-    <div class="comm-input-card"><div class="comm-input-label">Agape Net Price (ex-VAT)</div><div class="comm-price-wrap"><span class="comm-prefix">&#x20AC;</span><input class="comm-price-input" id="commPrice" type="number" inputmode="decimal" placeholder="0.00" oninput="commCalc()"></div>
-    <div class="comm-result-box" id="commResult" style="display:none;"><div class="comm-result-row"><span class="comm-result-lbl">Commission (EUR)</span><span class="comm-result-val" id="cEur">-</span></div><div class="comm-result-row"><span class="comm-result-lbl">Commission (GBP)</span><span class="comm-result-val" id="cGbp">-</span><span class="comm-result-sub" id="cRate"></span></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);display:flex;justify-content:space-between;font-size:12px;color:#999;"><span>Net: <span id="cNet">-</span></span><span>To Agape: <span id="cAfter">-</span></span></div></div>
-    <div class="comm-quick"><button class="comm-quick-btn" onclick="commSet(1000)">&#x20AC;1,000</button><button class="comm-quick-btn" onclick="commSet(2500)">&#x20AC;2,500</button><button class="comm-quick-btn" onclick="commSet(5000)">&#x20AC;5,000</button><button class="comm-quick-btn" onclick="commSet(10000)">&#x20AC;10,000</button><button class="comm-quick-btn" onclick="commSet(25000)">&#x20AC;25,000</button><button class="comm-quick-btn" onclick="commSet(50000)">&#x20AC;50,000</button></div></div>
-    <div class="comm-table-card"><div class="comm-table-hdr" id="commHdr">Reference table</div><div id="commTable"></div></div>
-  </div>
-</div>
 <script>
 /* FX */
 var fxRate=null,fxFrom='EUR',fxTo='GBP',fxLastFetched=null;
@@ -4398,7 +4388,7 @@ function updateFxUI(){
   var sub=document.getElementById('fxRateSub');if(sub)sub.textContent=mins!=null?(mins<2?'Updated just now \xb7 ECB':'Updated '+mins+'m ago \xb7 ECB'):'';
   var egEl=document.getElementById('homeRateSnippetEG');if(egEl)egEl.textContent='1 EUR = '+fxRate.toFixed(4)+' GBP';
   var geEl=document.getElementById('homeRateSnippetGE');if(geEl)geEl.textContent='1 GBP = '+(1/fxRate).toFixed(4)+' EUR';
-  fxCalc();buildFxRef();try{commCalc();}catch(e){}
+  fxCalc();buildFxRef();
 }
 function fxCalc(){var rate=getRate();if(!rate)return;var i=document.getElementById('fxFromInput'),o=document.getElementById('fxToInput');if(!i||!o)return;var v=parseFloat(i.value);o.value=isNaN(v)?'':(v*rate).toFixed(2);}
 function fxApplyDirectionUI(){var fe=fxFrom==='EUR';var EU='\u{1F1EA}\u{1F1FA}',GB='\u{1F1EC}\u{1F1E7}';var ff=document.getElementById('fxFromFlag'),fc=document.getElementById('fxFromCcy'),tf=document.getElementById('fxToFlag'),tc=document.getElementById('fxToCcy');if(ff)ff.textContent=fe?EU:GB;if(fc)fc.textContent=fxFrom;if(tf)tf.textContent=fe?GB:EU;if(tc)tc.textContent=fxTo;var t=document.getElementById('fxModalTitle');if(t)t.textContent=fxFrom+' → '+fxTo;}
@@ -4535,7 +4525,7 @@ var PROJ_VALUE_GRAPH_LABELS={
 function openGrassiCommission(){nav('grassi-commission');}
 function openFriulCommission(){nav('friul-commission');}
 
-/* @@AGAPE-COMMISSION-VALUE-JS@@ 2026-07-19 — Agape commission by client: 8% of each client's 2026 sales (agapeSalesByClient), same visual language as Sales by Client. Provisional rate — the pre-existing manual calculator (openAgapeCommission()) defaults to a configurable 15%; Michele confirmed 8% specifically for this per-client 2026 view. */
+/* @@AGAPE-COMMISSION-VALUE-JS@@ 2026-07-19 — Agape commission by client: 8% of each client's 2026 sales (agapeSalesByClient), same visual language as Sales by Client. This is now the only Agape commission feature — the old manual price-in/rate-out calculator (openAgapeCommission(), default 15%) was removed 2026-07-19 per Michele's request to keep just this one. */
 var AGAPE_COMMISSION_RATE=0.08;
 function openAgapeCommissionByClient(){
   nav('agape-commission-value');
@@ -4620,29 +4610,6 @@ function openAgapeSalesByClient(){
     ['agsc-0','agsc-1'].forEach(function(id,i){var target=cards[i].v;var el=document.getElementById(id);if(el)animateValue(el,0,target,1200,function(v,e){if(e)e.textContent='€'+Math.round(v).toLocaleString('en-GB');});});
   }catch(e){}
 }
-
-/* COMMISSION */
-var CK2='dd_agape_commission_rate';
-function openAgapeCommission(){nav('agape-commission');var s=localStorage.getItem(CK2),i=document.getElementById('commRate');if(i)i.value=s||'15';commCalc();}
-function commSave(){var i=document.getElementById('commRate');if(!i)return;var r=parseFloat(i.value);if(isNaN(r)||r<=0||r>100){try{showToast('Enter 1–100');}catch(e){}return;}localStorage.setItem(CK2,String(r));try{showToast('Rate saved: '+r+'%');}catch(e){}commCalc();}
-function commSet(n){var i=document.getElementById('commPrice');if(i){i.value=n;commCalc();}}
-function commCalc(){
-  var ri=document.getElementById('commRate'),pi=document.getElementById('commPrice');
-  var rate=parseFloat(ri?ri.value:(localStorage.getItem(CK2)||15));
-  var price=parseFloat(pi?pi.value:0);
-  var box=document.getElementById('commResult');
-  if(isNaN(price)||price<=0){if(box)box.style.display='none';commBuildTable(rate);return;}
-  if(isNaN(rate)||rate<=0)return;
-  var cE=price*rate/100,cG=fxRate?cE*fxRate:null,f2=function(n){return n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});};
-  if(box)box.style.display='block';
-  var e=document.getElementById('cEur');if(e)e.textContent='€'+f2(cE);
-  var g=document.getElementById('cGbp');if(g)g.textContent=cG?'\xa3'+f2(cG):'Open FX calc first';
-  var gr=document.getElementById('cRate');if(gr)gr.textContent=fxRate?'@ '+fxRate.toFixed(4):'';
-  var n=document.getElementById('cNet');if(n)n.textContent='€'+f2(price);
-  var a=document.getElementById('cAfter');if(a)a.textContent='€'+f2(price-cE);
-  commBuildTable(rate);
-}
-function commBuildTable(rate){var amounts=[500,1000,2000,5000,10000,25000,50000,100000];var hdr=document.getElementById('commHdr'),rows=document.getElementById('commTable');if(!hdr||!rows)return;hdr.textContent='Reference at '+rate+'%';rows.innerHTML=amounts.map(function(a){var c=a*rate/100,g=fxRate?'\xa3'+(c*fxRate).toLocaleString('en-GB',{maximumFractionDigits:0}):'';return '<div class="comm-table-row"><span class="comm-table-price">€'+a.toLocaleString()+'</span><span class="comm-table-comm">€'+c.toLocaleString('en-GB',{maximumFractionDigits:0})+'</span><span class="comm-table-gbp">'+g+'</span></div>';}).join('');}
 
 /* CHANGE PIN */
 var cpBuf='',cpStep=0,cpNew='';
