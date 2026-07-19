@@ -3798,12 +3798,21 @@ function renderHomeOrdersTile(){
     var STAGES=['Confirmed','In Production','Delivered','Invoiced','Ready to Ship','Snagging','Completed'];
     var totals={}; BRANDS.forEach(function(b){totals[b.name]=0;});
     gP().forEach(function(p){
+      if(p.brand==='Agape')return; // Agape total comes from the full client sales ledger below — most Agape dealer/partner orders (see #agape-sales) don't have an individual project entry, so summing just the projects array undercounts it
       if(!STAGES.includes(p.stage))return;
       var y=new Date(p.updated||p.due||Date.now()).getFullYear();
       if(y!==yr)return;
       var v=pEur(p.exvat||p.value||0);
       if(totals[p.brand]!==undefined)totals[p.brand]+=v;
     });
+    // @@AGAPE-SALES-IN-ORDERS-TILE@@ 2026-07-19 — Agape's bar reflects the same agapeSalesByClient total as the Agape "Sales by Client" screen, so the two stay consistent
+    try{
+      var asc=window.DD_EMBEDDED&&window.DD_EMBEDDED.agapeSalesByClient;
+      var yrKey='ord'+yr;
+      if(asc&&asc.clients&&asc.clients.length&&Object.prototype.hasOwnProperty.call(asc.clients[0],yrKey)){
+        totals['Agape']=asc.clients.reduce(function(s,c){return s+(c[yrKey]||0);},0);
+      }
+    }catch(e){}
     var grand=0, maxV=0;
     BRANDS.forEach(function(b){grand+=totals[b.name]; if(totals[b.name]>maxV)maxV=totals[b.name];});
     var yEl=document.getElementById('hOrdersYear'); if(yEl)yEl.textContent=yr;
