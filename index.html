@@ -536,7 +536,8 @@ async function ppFaceId(){
       <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4OCA4OCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMUIyRjhBIiBzdHJva2Utd2lkdGg9IjUuNSIgc3Ryb2tlLWxpbmVjYXA9InNxdWFyZSI+PHJlY3QgeD0iNCIgeT0iNCIgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIi8+PGxpbmUgeDE9IjMxIiB5MT0iNCIgeDI9IjMxIiB5Mj0iODQiLz48bGluZSB4MT0iNTciIHkxPSI0IiB4Mj0iNTciIHkyPSI4NCIvPjxsaW5lIHgxPSIwIiB5MT0iMzEiIHgyPSI4OCIgeTI9IjMxIi8+PGxpbmUgeDE9IjAiIHkxPSI1NyIgeDI9Ijg4IiB5Mj0iNTciLz48L2c+PC9zdmc+" style="width:100%;height:60px;object-fit:contain;padding:0 16px;" alt="Avantgarde">
       <div class="bt-name" style="display:block;font-size:10px;font-weight:700;color:#1B2F8A;margin-top:6px;letter-spacing:.08em;">AVANTGARDE</div>
     </div>
-  </div>Overview</div>
+  </div>
+  <div class="section-label">Overview</div>
   <div class="stats-row">
     <div class="stat" onclick="goToFilter('all')" style="cursor:pointer;"><div class="stat-n" id="st-total">0</div><div class="stat-l">Total</div></div>
     <div class="stat" onclick="goToFilter('live-projects')" style="cursor:pointer;"><div class="stat-n" id="st-active">0</div><div class="stat-l">Live Projects</div></div>
@@ -628,19 +629,6 @@ async function ppFaceId(){
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CB;</div>
       <div class="sub-tile-name">Order Log</div>
       <div class="sub-tile-desc">All supplier orders</div>
-    </div>
-    <!-- Annual Orders tile — full width -->
-    <div class="orders-tile" id="annualOrdersTile">
-      <div class="orders-tile-hdr">
-        <span class="orders-tile-title">📊 Orders this year</span>
-        <span class="orders-tile-year" id="ordersYear"></span>
-      </div>
-      <div id="ordersBrandRows"></div>
-      <div class="orders-divider"></div>
-      <div class="orders-total-row">
-        <span class="orders-total-lbl">Total confirmed</span>
-        <span class="orders-total-val" id="ordersTotalVal">€0</span>
-      </div>
     </div>
     <div class="sub-tile" onclick="openDeliveryCalendar()">
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4C5;</div>
@@ -3729,6 +3717,35 @@ if(!localStorage.getItem("dd_clients_seeded_v1")){
 // Auto-sync from Gist on load if token is present
 if(getToken()) syncFromGist();
 
+// @@HOME-TILE-ANIM@@ eased bar/counter animation for the home Orders & Commissions tiles (same easing as the old brand-page tile)
+function animateHomeTile(tileId,rows,totalId,grand){
+  var setFinal=function(){
+    rows.forEach(function(r){
+      var b=document.getElementById(r.barId); if(b)b.style.width=r.pct+'%';
+      var v=document.getElementById(r.valId); if(v)v.textContent='\u20ac'+Math.round(r.val).toLocaleString('en-GB');
+    });
+    var t=document.getElementById(totalId); if(t)t.textContent='\u20ac'+Math.round(grand).toLocaleString('en-GB');
+  };
+  try{
+    var tile=document.getElementById(tileId);
+    if(!tile||typeof animateValue!=='function'||typeof IntersectionObserver==='undefined'){setFinal();return;}
+    if(tile._barObserver){tile._barObserver.disconnect();}
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting)return;
+        observer.disconnect();
+        var DUR=1500;
+        rows.forEach(function(r){
+          animateValue(document.getElementById(r.barId),0,r.pct,DUR,function(v,el){if(el)el.style.width=v+'%';});
+          animateValue(document.getElementById(r.valId),0,r.val,DUR,function(v,el){if(el)el.textContent='\u20ac'+Math.round(v).toLocaleString('en-GB');});
+        });
+        animateValue(document.getElementById(totalId),0,grand,DUR,function(v,el){if(el)el.textContent='\u20ac'+Math.round(v).toLocaleString('en-GB');});
+      });
+    },{threshold:0.3});
+    tile._barObserver=observer;
+    observer.observe(tile);
+  }catch(e){setFinal();}
+}
 // @@HOME-ORDERS@@ all-supplier annual orders on the home screen
 function renderHomeOrdersTile(){
   try{
@@ -3747,15 +3764,15 @@ function renderHomeOrdersTile(){
     var grand=0, maxV=0;
     BRANDS.forEach(function(b){grand+=totals[b.name]; if(totals[b.name]>maxV)maxV=totals[b.name];});
     var yEl=document.getElementById('hOrdersYear'); if(yEl)yEl.textContent=yr;
-    rowsEl.innerHTML=BRANDS.map(function(b){
-      var v=totals[b.name], pct=maxV>0?Math.round(v/maxV*100):0;
+    rowsEl.innerHTML=BRANDS.map(function(b,i){
       return '<div class="orders-brand-row">'
         +'<div class="orders-brand-label"><span class="orders-brand-name">'+b.name+'</span>'
-        +'<span class="orders-brand-val">\u20ac'+Math.round(v).toLocaleString('en-GB')+'</span></div>'
-        +'<div class="orders-bar-bg"><div class="orders-bar-fill" style="background:'+b.col+';width:'+pct+'%;"></div></div></div>';
+        +'<span class="orders-brand-val" id="hobv-'+i+'">\u20ac0</span></div>'
+        +'<div class="orders-bar-bg"><div class="orders-bar-fill" id="hobb-'+i+'" style="background:'+b.col+';width:0%;"></div></div></div>';
     }).join('');
     var tEl=document.getElementById('hOrdersTotal');
-    if(tEl)tEl.textContent='\u20ac'+Math.round(grand).toLocaleString('en-GB');
+    if(tEl)tEl.textContent='\u20ac0';
+    animateHomeTile('homeOrdersTile',BRANDS.map(function(b,i){return{barId:'hobb-'+i,valId:'hobv-'+i,val:totals[b.name],pct:maxV>0?(totals[b.name]/maxV*100):0};}),'hOrdersTotal',grand);
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded',renderHomeOrdersTile);
@@ -3770,15 +3787,15 @@ function renderHomeCommissionsTile(){
     var grand=0,maxV=0;
     SUPS.forEach(function(s){grand+=totals[s.name]; if(totals[s.name]>maxV)maxV=totals[s.name];});
     var yEl=document.getElementById('hCommYear'); if(yEl)yEl.textContent=cm.year||'';
-    rowsEl.innerHTML=SUPS.map(function(s){
-      var v=totals[s.name], pct=maxV>0?Math.round(v/maxV*100):0;
+    rowsEl.innerHTML=SUPS.map(function(s,i){
       return '<div class="orders-brand-row">'
         +'<div class="orders-brand-label"><span class="orders-brand-name">'+s.name+'</span>'
-        +'<span class="orders-brand-val">\u20ac'+Math.round(v).toLocaleString('en-GB')+'</span></div>'
-        +'<div class="orders-bar-bg"><div class="orders-bar-fill" style="background:'+s.col+';width:'+pct+'%;"></div></div></div>';
+        +'<span class="orders-brand-val" id="hcbv-'+i+'">\u20ac0</span></div>'
+        +'<div class="orders-bar-bg"><div class="orders-bar-fill" id="hcbb-'+i+'" style="background:'+s.col+';width:0%;"></div></div></div>';
     }).join('');
     var tEl=document.getElementById('hCommTotal');
-    if(tEl)tEl.textContent='\u20ac'+Math.round(grand).toLocaleString('en-GB');
+    if(tEl)tEl.textContent='\u20ac0';
+    animateHomeTile('homeCommTile',SUPS.map(function(s,i){return{barId:'hcbb-'+i,valId:'hcbv-'+i,val:totals[s.name],pct:maxV>0?(totals[s.name]/maxV*100):0};}),'hCommTotal',grand);
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded',renderHomeCommissionsTile);
