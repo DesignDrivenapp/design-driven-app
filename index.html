@@ -716,10 +716,17 @@ async function ppFaceId(){
     <div><div class="bh-name">Grassi Pietre</div><div class="bh-sub">Natural Stone · Ossola Valley, Italy</div></div>
   </div>
   <div class="sub-grid">
-    <div class="sub-tile" onclick="openOrderLog()">
-      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CB;</div>
-      <div class="sub-tile-name">Order Log</div>
-      <div class="sub-tile-desc">All supplier orders</div>
+    <!-- @@BRAND-REPORT-TILE@@ 2026-07-19 — same info as the Design Driven Daily Report, scoped to Grassi Pietre only -->
+    <div class="sub-tile" onclick="openGrassiDailyReport()">
+      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CA;</div>
+      <div class="sub-tile-name">Daily Report</div>
+      <div class="sub-tile-desc">Updates, actions &amp; deadlines</div>
+    </div>
+    <!-- @@GRASSI-SALES-TILE@@ 2026-07-19 — replaces Order Log, same treatment as Friul/Agape's Sales by Client -->
+    <div class="sub-tile" onclick="openGrassiSalesByClient()">
+      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4B6;</div>
+      <div class="sub-tile-name">Sales by Client</div>
+      <div class="sub-tile-desc">Confirmed orders, by client</div>
     </div>
     <div class="sub-tile" onclick="openSampleTracker('Grassi Pietre')">
       <div class="sub-icon" style="background:var(--accent-soft);">📦</div>
@@ -753,6 +760,42 @@ async function ppFaceId(){
   </div>
   <div class="content-list">
     <div class="empty"><div class="empty-i">💰</div><p>Commission tracking for Grassi Pietre is coming soon.</p></div>
+  </div>
+</div>
+
+<!-- @@GRASSI-REPORT-SCREEN@@ 2026-07-19 — Daily Report scoped to Grassi Pietre only, same structure as #dd-report -->
+<div class="screen" id="grassi-report">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--grassi)" onclick="nav('brand-grassi')">&#x2190; Grassi Pietre</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Daily Report</div></div>
+    <button style="background:none;border:none;color:var(--grassi);font-size:13px;font-weight:600;cursor:pointer;" onclick="renderGrassiReport()">&#x21BB;</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:20px;">
+    <div class="rpt-date" id="grassiRptDate"></div>
+    <div class="rpt-toolbar"><button class="rpt-btn rpt-btn-pdf" onclick="window.print()">&#x1F4BE; Save PDF</button><button class="rpt-btn rpt-btn-copy" onclick="copyReport(['Grassi Pietre'])">&#x1F4CB; Copy</button><button class="rpt-btn rpt-btn-email" onclick="emailReport(['Grassi Pietre'])">&#x2709; Email</button></div>
+    <div id="grassiReportBody"></div>
+  </div>
+</div>
+
+<!-- @@GRASSI-SALES-SCREEN@@ 2026-07-19 — sales by client, derived from projects (no separate ledger like Agape), same visual language as Orders/Commissions tiles + Friul's Sales by Client -->
+<div class="screen" id="grassi-sales">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--grassi)" onclick="nav('brand-grassi')">&#x2190; Grassi Pietre</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Sales by Client</div></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:24px;">
+    <div class="snap-summary" id="grassiSaleSummary"></div>
+    <div class="section-label" style="text-align:center;">By client</div>
+    <div style="padding:0 20px 8px;display:flex;justify-content:center;">
+      <div class="orders-tile" id="grassiSaleTile" style="width:100%;max-width:560px;">
+        <div id="grassiSaleRows"></div>
+        <div class="orders-divider"></div>
+        <div style="text-align:center;padding-top:8px;">
+          <span style="font-size:12px;color:var(--sub);">Total confirmed </span>
+          <span id="grassiSaleTotal" style="font-size:18px;font-weight:600;color:var(--dark);">€0</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -986,6 +1029,12 @@ async function ppFaceId(){
     <div><div class="bh-name">Friul Mosaic</div><div class="bh-sub">Handcrafted Mosaic · Friuli, Italy</div></div>
   </div>
   <div class="sub-grid">
+    <!-- @@BRAND-REPORT-TILE@@ 2026-07-19 — same info as the Design Driven Daily Report, scoped to Friul Mosaic only -->
+    <div class="sub-tile" onclick="openFriulDailyReport()">
+      <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4CA;</div>
+      <div class="sub-tile-name">Daily Report</div>
+      <div class="sub-tile-desc">Updates, actions &amp; deadlines</div>
+    </div>
     <!-- @@FRIUL-SALES-TILE@@ 2026-07-19 — replaces Order Log, same treatment as Agape's Sales by Client -->
     <div class="sub-tile" onclick="openFriulSalesByClient()">
       <div class="sub-icon" style="background:var(--accent-soft);">&#x1F4B6;</div>
@@ -1015,6 +1064,20 @@ async function ppFaceId(){
     <div class="stat" onclick="navFriulFolder('all')" style="cursor:pointer;"><div class="stat-n" id="friul-st-total">0</div><div class="stat-l">Total</div></div>
     <div class="stat" onclick="navFriulFolder('live-projects')" style="cursor:pointer;"><div class="stat-n" id="friul-st-active">0</div><div class="stat-l">Live Projects</div></div>
     <div class="stat" onclick="navFriulFolder('live-quotes')" style="cursor:pointer;"><div class="stat-n" id="friul-st-fu">0</div><div class="stat-l">Live Quotes</div></div>
+  </div>
+</div>
+
+<!-- @@FRIUL-REPORT-SCREEN@@ 2026-07-19 — Daily Report scoped to Friul Mosaic only, same structure as #dd-report -->
+<div class="screen" id="friul-report">
+  <div class="topbar">
+    <button class="tb-back" style="color:var(--friul)" onclick="nav('brand-friul')">&#x2190; Friul Mosaic</button>
+    <div style="flex:1;text-align:center;"><div class="tb-title">Daily Report</div></div>
+    <button style="background:none;border:none;color:var(--friul);font-size:13px;font-weight:600;cursor:pointer;" onclick="renderFriulReport()">&#x21BB;</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:20px;">
+    <div class="rpt-date" id="friulRptDate"></div>
+    <div class="rpt-toolbar"><button class="rpt-btn rpt-btn-pdf" onclick="window.print()">&#x1F4BE; Save PDF</button><button class="rpt-btn rpt-btn-copy" onclick="copyReport(['Friul Mosaic'])">&#x1F4CB; Copy</button><button class="rpt-btn rpt-btn-email" onclick="emailReport(['Friul Mosaic'])">&#x2709; Email</button></div>
+    <div id="friulReportBody"></div>
   </div>
 </div>
 
@@ -4422,6 +4485,49 @@ function bCol(b){return b==='Grassi Pietre'?'#C4956A':b==='Friul Mosaic'?'#1D9E7
 function gP(){return typeof projects!=='undefined'?projects:[];}
 function gS(){return typeof samples!=='undefined'?samples:[];}
 
+/* @@GRASSI-SALES-JS@@ 2026-07-19 — Grassi sales-by-client — derived from projects (no separate ledger like Agape), same visual language as Orders/Commissions tiles */
+function openGrassiSalesByClient(){
+  nav('grassi-sales');
+  var pal=['#C4956A','#8A6238','#D9AE85','#A9744A','#E0BC96','#7A5530','#CC9E70','#95693C','#DBAF80','#6B4A28','#E2C299','#B07E4E'];
+  var STAGES=['Confirmed','In Production','Delivered','Invoiced','Ready to Ship','Snagging','Completed'];
+  var g=gP().filter(function(p){return p.brand==='Grassi Pietre'&&STAGES.includes(p.stage);});
+  var byClient={};
+  g.forEach(function(p){
+    var c=p.client||'Unknown';
+    var v=pEur(p.exvat||p.value||0);
+    byClient[c]=(byClient[c]||0)+v;
+  });
+  var clients=Object.keys(byClient).map(function(c){return {client:c,val:byClient[c]};}).filter(function(c){return c.val>0;}).sort(function(a,b){return b.val-a.val;});
+  var total=clients.reduce(function(s,c){return s+c.val;},0);
+
+  var su=document.getElementById('grassiSaleSummary');
+  if(su)su.innerHTML='<div class="snap-card"><div class="snap-card-val" id="gsc-0">€0</div><div class="snap-card-lbl">Total Sales</div></div>'
+    +'<div class="snap-card"><div class="snap-card-val">'+clients.length+'</div><div class="snap-card-lbl">Clients</div></div>';
+
+  if(!clients.length){
+    var rEl0=document.getElementById('grassiSaleRows'); if(rEl0)rEl0.innerHTML='<div style="font-size:12px;color:var(--light);padding:8px 20px;">No confirmed sales yet</div>';
+    var tEl0=document.getElementById('grassiSaleTotal'); if(tEl0)tEl0.textContent='€0';
+    return;
+  }
+
+  var maxV=Math.max.apply(null,clients.map(function(c){return c.val;}));
+  var rowsEl=document.getElementById('grassiSaleRows');
+  if(rowsEl)rowsEl.innerHTML=clients.map(function(c,i){
+    var col=pal[i%pal.length];
+    return '<div class="orders-brand-row">'
+      +'<div class="orders-brand-label"><span class="orders-brand-name">'+c.client+'</span>'
+      +'<span class="orders-brand-val" id="gsv-'+i+'">€0</span></div>'
+      +'<div class="orders-bar-bg"><div class="orders-bar-fill" id="gsb-'+i+'" style="background:'+col+';width:0%;"></div></div></div>';
+  }).join('');
+  var tEl=document.getElementById('grassiSaleTotal'); if(tEl)tEl.textContent='€0';
+
+  var rows=clients.map(function(c,i){return {barId:'gsb-'+i,valId:'gsv-'+i,val:c.val,pct:maxV>0?(c.val/maxV*100):0};});
+  animateHomeTile('grassiSaleTile',rows,'grassiSaleTotal',total);
+  try{
+    var el=document.getElementById('gsc-0'); if(el)animateValue(el,0,total,1200,function(v,e){if(e)e.textContent='€'+Math.round(v).toLocaleString('en-GB');});
+  }catch(e){}
+}
+
 /* @@FRIUL-SALES-JS@@ Friul sales-by-client — derived from projects (no separate ledger like Agape), same visual language as Orders/Commissions tiles */
 function openFriulSalesByClient(){
   nav('friul-sales');
@@ -4764,15 +4870,112 @@ function renderOrders(filter){var orders=[];gP().forEach(function(p){if(filter!=
 /* DAILY REPORT */
 function openDailyReport(){nav('dd-report');renderReport();}
 function renderReport(){var today=new Date();var de=document.getElementById('rptDate');if(de)de.textContent='Generated: '+today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' at '+today.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});var body=document.getElementById('reportBody');if(body)body.innerHTML=buildReport();}
-function buildReport(){var today=new Date();today.setHours(0,0,0,0);var in7=new Date(today.getTime()+7*24*60*60*1000),ago14=new Date(today.getTime()-14*24*60*60*1000);var BRANDS=[{name:'Grassi Pietre',bg:'#E8873A'},{name:'Friul Mosaic',bg:'#3BAE85'},{name:'Agape',bg:'#F5821E'}],QS=['Enquiry','Sample Sent','Quoted'],LS=['Confirmed','In Production'],html='',allActs=[];BRANDS.forEach(function(brand){var bp=gP().filter(function(p){return p.brand===brand.name;}),bs=gS().filter(function(s){return s.brand===brand.name;});html+='<div class="rpt-brand"><div class="rpt-brand-hdr" style="background:'+brand.bg+';"><span class="rpt-brand-name">'+brand.name+'</span></div>';var urgent=[];bp.forEach(function(p){if(p.stage==='Delivered')return;(p.deliveries||[]).forEach(function(d){if(!d.date||d.status==='Delivered')return;var dd=new Date(d.date);dd.setHours(0,0,0,0);if(dd<=in7){var od=dd<today;urgent.push({type:od?'overdue':'soon',text:(od?'🔴 OVERDUE':'⚠️ Due '+fDs(dd))+': '+p.name+' — '+d.label,sub:d.notes||''});allActs.push({brand:brand.name,text:(od?'🔴':'⚠️')+' '+p.name+': '+d.label+(od?' OVERDUE':' due '+fDs(dd))});}});if(p.due){var pd=new Date(p.due);pd.setHours(0,0,0,0);if(pd>=today&&pd<=in7){urgent.push({type:'soon',text:'📅 Deadline in '+Math.round((pd-today)/86400000)+'d: '+p.name,sub:p.nextAction||''});allActs.push({brand:brand.name,text:'📅 '+p.name+': deadline '+fDs(pd)});}}});bp.filter(function(p){return QS.includes(p.stage)&&new Date(p.updated||0)<ago14;}).forEach(function(p){var days=Math.floor((today-new Date(p.updated||0))/86400000);urgent.push({type:'stale',text:'🕒 Stale quote ('+days+'d): '+p.name+' — '+p.client,sub:p.value||''});allActs.push({brand:brand.name,text:'🕒 Chase: '+p.name+' ('+days+'d stale)'});});bs.filter(function(s){return s.status==='Dispatched';}).forEach(function(s){allActs.push({brand:brand.name,text:'📦 Chase delivery: '+s.client+' — '+(s.desc||'sample')});});if(urgent.length>0){html+='<div class="rpt-section"><div class="rpt-section-hdr">⚠️ Actions Required</div>'+urgent.map(function(u){return '<div class="rpt-item '+(u.type==='overdue'?'rpt-urgent':'rpt-warn')+'"><div class="rpt-item-name">'+u.text+'</div>'+(u.sub?'<div class="rpt-item-action">'+u.sub.substring(0,120)+'</div>':'')+'</div>';}).join('')+'</div>';}var live=bp.filter(function(p){return LS.includes(p.stage);});html+='<div class="rpt-section"><div class="rpt-section-hdr">🚧 Live ('+live.length+')</div>'+(live.length===0?'<div class="rpt-empty">No live projects</div>':live.map(function(p){return '<div class="rpt-item"><div class="rpt-item-name">'+p.name+'</div><div class="rpt-item-meta">'+p.client+' \xb7 '+p.stage+(p.exvat?' \xb7 '+fEur(pEur(p.exvat)):'')+'</div>'+(p.nextAction?'<div class="rpt-item-action">👉 '+p.nextAction.substring(0,150)+'</div>':'')+'</div>';}).join(''))+'</div>';var staleIds=bp.filter(function(p){return QS.includes(p.stage)&&new Date(p.updated||0)<ago14;}).map(function(p){return p.id;});var quotes=bp.filter(function(p){return QS.includes(p.stage)&&!staleIds.includes(p.id);});html+='<div class="rpt-section"><div class="rpt-section-hdr">📋 Quotes ('+quotes.length+')</div>'+(quotes.length===0?'<div class="rpt-empty">No active quotes</div>':quotes.map(function(p){var days=Math.floor((today-new Date(p.updated||0))/86400000);return '<div class="rpt-item"><div class="rpt-item-name">'+p.name+'</div><div class="rpt-item-meta">'+p.client+' \xb7 '+p.stage+(days>0?' \xb7 '+days+'d since update':'')+'</div>'+(p.nextAction?'<div class="rpt-item-action">👉 '+p.nextAction.substring(0,120)+'</div>':'')+'</div>';}).join(''))+'</div>';if(bs.length>0){html+='<div class="rpt-section"><div class="rpt-section-hdr">📦 Samples ('+bs.length+')</div>'+bs.map(function(s){return '<div class="rpt-item '+(s.status==='Dispatched'?'rpt-warn':s.status==='Delivered'?'rpt-ok':'')+'"><div class="rpt-item-name">'+(s.desc||'Sample')+' — '+s.client+'</div><div class="rpt-item-meta">'+s.status+(s.courier?' \xb7 '+s.courier:'')+'</div>'+(s.status==='Requested'?'<div class="rpt-item-action">👉 Arrange dispatch</div>':(s.status==='Dispatched'?'<div class="rpt-item-action">👉 Chase delivery</div>':''))+'</div>';}).join('')+'</div>';}html+='</div>';});var sum=allActs.length>0?'<div class="rpt-actions-box"><div class="rpt-actions-title">📋 Actions for Today</div>'+allActs.map(function(a){return '<div class="rpt-action-item">'+a.brand+': '+a.text+'</div>';}).join('')+'</div>':'<div class="rpt-actions-box"><div class="rpt-actions-title">✓ All clear — no urgent actions today</div></div>';try{if(typeof avJobs!=='undefined'&&avJobs.length>0){var today2=new Date();today2.setHours(0,0,0,0);var activeAv=avJobs.filter(function(j){return['Upcoming','In Progress','On Hold'].includes(j.status);});if(activeAv.length>0){var avHtml='<div class="rpt-brand" style="margin:10px 14px 0;"><div class="rpt-brand-hdr" style="background:#1B2F8A;"><span class="rpt-brand-name">Avantgarde — Installations</span></div>';var inProg=activeAv.filter(function(j){return j.status==='In Progress';});avHtml+='<div class="rpt-section"><div class="rpt-section-hdr">🔨 Active ('+inProg.length+')</div>';if(!inProg.length)avHtml+='<div class="rpt-empty">No active installations</div>';inProg.forEach(function(j){var os=(j.snags||[]).filter(function(s){return s.status!=='Resolved';}).length,pv=(j.variations||[]).filter(function(v){return v.status==='Pending';}).length;avHtml+='<div class="rpt-item"><div class="rpt-item-name">'+j.name+'</div><div class="rpt-item-meta">'+(j.client||'')+(j.location?' · '+j.location:'')+'</div><div class="rpt-item-meta">Progress: '+(j.progress||0)+'%'+(os?' · ⚠ '+os+' snag'+(os>1?'s':''):'')+(pv?' · '+pv+' VO pending':'')+'</div></div>';if(os)allActs.push({brand:'Avantgarde',text:'⚠ '+j.name+': '+os+' open snag'+(os>1?'s':'')});if(pv)allActs.push({brand:'Avantgarde',text:'📋 '+j.name+': '+pv+' VO pending'});});avHtml+='</div>';var up=activeAv.filter(function(j){return j.status==='Upcoming';});if(up.length){avHtml+='<div class="rpt-section"><div class="rpt-section-hdr">📅 Upcoming ('+up.length+')</div>';up.forEach(function(j){var dt=j.startDate?Math.round((new Date(j.startDate+'T12:00')-today2)/86400000):null;avHtml+='<div class="rpt-item"><div class="rpt-item-name">'+j.name+'</div><div class="rpt-item-meta">'+(j.client||'')+(dt!==null?' · Starts in '+dt+'d':'')+'</div></div>';if(dt!==null&&dt<=7)allActs.push({brand:'Avantgarde',text:'📅 '+j.name+' starts in '+dt+'d'});});avHtml+='</div>';}avHtml+='</div>';html+=avHtml;}}}catch(e){}
+/* @@REPORT-REFACTOR@@ 2026-07-19 — extracted the per-brand block + summary-box building out of buildReport() into reusable helpers, so Grassi/Friul can get their own scoped Daily Report without duplicating this logic. buildReport()'s own output is unchanged. */
+function buildBrandReportBlock(brand,allActs){
+  var today=new Date();today.setHours(0,0,0,0);
+  var in7=new Date(today.getTime()+7*24*60*60*1000),ago14=new Date(today.getTime()-14*24*60*60*1000);
+  var QS=['Enquiry','Sample Sent','Quoted'],LS=['Confirmed','In Production'];
+  var bp=gP().filter(function(p){return p.brand===brand.name;}),bs=gS().filter(function(s){return s.brand===brand.name;});
+  var html='<div class="rpt-brand"><div class="rpt-brand-hdr" style="background:'+brand.bg+';"><span class="rpt-brand-name">'+brand.name+'</span></div>';
+  var urgent=[];
+  bp.forEach(function(p){
+    if(p.stage==='Delivered')return;
+    (p.deliveries||[]).forEach(function(d){
+      if(!d.date||d.status==='Delivered')return;
+      var dd=new Date(d.date);dd.setHours(0,0,0,0);
+      if(dd<=in7){
+        var od=dd<today;
+        urgent.push({type:od?'overdue':'soon',text:(od?'🔴 OVERDUE':'⚠️ Due '+fDs(dd))+': '+p.name+' — '+d.label,sub:d.notes||''});
+        allActs.push({brand:brand.name,text:(od?'🔴':'⚠️')+' '+p.name+': '+d.label+(od?' OVERDUE':' due '+fDs(dd))});
+      }
+    });
+    if(p.due){
+      var pd=new Date(p.due);pd.setHours(0,0,0,0);
+      if(pd>=today&&pd<=in7){
+        urgent.push({type:'soon',text:'📅 Deadline in '+Math.round((pd-today)/86400000)+'d: '+p.name,sub:p.nextAction||''});
+        allActs.push({brand:brand.name,text:'📅 '+p.name+': deadline '+fDs(pd)});
+      }
+    }
+  });
+  bp.filter(function(p){return QS.includes(p.stage)&&new Date(p.updated||0)<ago14;}).forEach(function(p){
+    var days=Math.floor((today-new Date(p.updated||0))/86400000);
+    urgent.push({type:'stale',text:'🕒 Stale quote ('+days+'d): '+p.name+' — '+p.client,sub:p.value||''});
+    allActs.push({brand:brand.name,text:'🕒 Chase: '+p.name+' ('+days+'d stale)'});
+  });
+  bs.filter(function(s){return s.status==='Dispatched';}).forEach(function(s){
+    allActs.push({brand:brand.name,text:'📦 Chase delivery: '+s.client+' — '+(s.desc||'sample')});
+  });
+  if(urgent.length>0){
+    html+='<div class="rpt-section"><div class="rpt-section-hdr">⚠️ Actions Required</div>'+urgent.map(function(u){
+      return '<div class="rpt-item '+(u.type==='overdue'?'rpt-urgent':'rpt-warn')+'"><div class="rpt-item-name">'+u.text+'</div>'+(u.sub?'<div class="rpt-item-action">'+u.sub.substring(0,120)+'</div>':'')+'</div>';
+    }).join('')+'</div>';
+  }
+  var live=bp.filter(function(p){return LS.includes(p.stage);});
+  html+='<div class="rpt-section"><div class="rpt-section-hdr">🚧 Live ('+live.length+')</div>'+(live.length===0?'<div class="rpt-empty">No live projects</div>':live.map(function(p){
+    return '<div class="rpt-item"><div class="rpt-item-name">'+p.name+'</div><div class="rpt-item-meta">'+p.client+' · '+p.stage+(p.exvat?' · '+fEur(pEur(p.exvat)):'')+'</div>'+(p.nextAction?'<div class="rpt-item-action">👉 '+p.nextAction.substring(0,150)+'</div>':'')+'</div>';
+  }).join(''))+'</div>';
+  var staleIds=bp.filter(function(p){return QS.includes(p.stage)&&new Date(p.updated||0)<ago14;}).map(function(p){return p.id;});
+  var quotes=bp.filter(function(p){return QS.includes(p.stage)&&!staleIds.includes(p.id);});
+  html+='<div class="rpt-section"><div class="rpt-section-hdr">📋 Quotes ('+quotes.length+')</div>'+(quotes.length===0?'<div class="rpt-empty">No active quotes</div>':quotes.map(function(p){
+    var days=Math.floor((today-new Date(p.updated||0))/86400000);
+    return '<div class="rpt-item"><div class="rpt-item-name">'+p.name+'</div><div class="rpt-item-meta">'+p.client+' · '+p.stage+(days>0?' · '+days+'d since update':'')+'</div>'+(p.nextAction?'<div class="rpt-item-action">👉 '+p.nextAction.substring(0,120)+'</div>':'')+'</div>';
+  }).join(''))+'</div>';
+  if(bs.length>0){
+    html+='<div class="rpt-section"><div class="rpt-section-hdr">📦 Samples ('+bs.length+')</div>'+bs.map(function(s){
+      return '<div class="rpt-item '+(s.status==='Dispatched'?'rpt-warn':s.status==='Delivered'?'rpt-ok':'')+'"><div class="rpt-item-name">'+(s.desc||'Sample')+' — '+s.client+'</div><div class="rpt-item-meta">'+s.status+(s.courier?' · '+s.courier:'')+'</div>'+(s.status==='Requested'?'<div class="rpt-item-action">👉 Arrange dispatch</div>':(s.status==='Dispatched'?'<div class="rpt-item-action">👉 Chase delivery</div>':''))+'</div>';
+    }).join('')+'</div>';
+  }
+  html+='</div>';
+  return html;
+}
+function buildReportSummaryBox(allActs){
+  return allActs.length>0
+    ?'<div class="rpt-actions-box"><div class="rpt-actions-title">📋 Actions for Today</div>'+allActs.map(function(a){return '<div class="rpt-action-item">'+a.brand+': '+a.text+'</div>';}).join('')+'</div>'
+    :'<div class="rpt-actions-box"><div class="rpt-actions-title">✓ All clear — no urgent actions today</div></div>';
+}
+function buildReport(){var BRANDS=[{name:'Grassi Pietre',bg:'#E8873A'},{name:'Friul Mosaic',bg:'#3BAE85'},{name:'Agape',bg:'#F5821E'}],html='',allActs=[];BRANDS.forEach(function(brand){html+=buildBrandReportBlock(brand,allActs);});var sum=buildReportSummaryBox(allActs);try{if(typeof avJobs!=='undefined'&&avJobs.length>0){var today2=new Date();today2.setHours(0,0,0,0);var activeAv=avJobs.filter(function(j){return['Upcoming','In Progress','On Hold'].includes(j.status);});if(activeAv.length>0){var avHtml='<div class="rpt-brand" style="margin:10px 14px 0;"><div class="rpt-brand-hdr" style="background:#1B2F8A;"><span class="rpt-brand-name">Avantgarde — Installations</span></div>';var inProg=activeAv.filter(function(j){return j.status==='In Progress';});avHtml+='<div class="rpt-section"><div class="rpt-section-hdr">🔨 Active ('+inProg.length+')</div>';if(!inProg.length)avHtml+='<div class="rpt-empty">No active installations</div>';inProg.forEach(function(j){var os=(j.snags||[]).filter(function(s){return s.status!=='Resolved';}).length,pv=(j.variations||[]).filter(function(v){return v.status==='Pending';}).length;avHtml+='<div class="rpt-item"><div class="rpt-item-name">'+j.name+'</div><div class="rpt-item-meta">'+(j.client||'')+(j.location?' · '+j.location:'')+'</div><div class="rpt-item-meta">Progress: '+(j.progress||0)+'%'+(os?' · ⚠ '+os+' snag'+(os>1?'s':''):'')+(pv?' · '+pv+' VO pending':'')+'</div></div>';if(os)allActs.push({brand:'Avantgarde',text:'⚠ '+j.name+': '+os+' open snag'+(os>1?'s':'')});if(pv)allActs.push({brand:'Avantgarde',text:'📋 '+j.name+': '+pv+' VO pending'});});avHtml+='</div>';var up=activeAv.filter(function(j){return j.status==='Upcoming';});if(up.length){avHtml+='<div class="rpt-section"><div class="rpt-section-hdr">📅 Upcoming ('+up.length+')</div>';up.forEach(function(j){var dt=j.startDate?Math.round((new Date(j.startDate+'T12:00')-today2)/86400000):null;avHtml+='<div class="rpt-item"><div class="rpt-item-name">'+j.name+'</div><div class="rpt-item-meta">'+(j.client||'')+(dt!==null?' · Starts in '+dt+'d':'')+'</div></div>';if(dt!==null&&dt<=7)allActs.push({brand:'Avantgarde',text:'📅 '+j.name+' starts in '+dt+'d'});});avHtml+='</div>';}avHtml+='</div>';html+=avHtml;}}}catch(e){}
 return sum+html||'<div class="rpt-no-data">No project data yet.</div>';}
-function copyReport(){var today=new Date(),lines=['DESIGN DRIVEN — DAILY REPORT',today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),''];['Grassi Pietre','Friul Mosaic','Agape'].forEach(function(bn){lines.push('═══ '+bn.toUpperCase()+' ═══');gP().filter(function(p){return p.brand===bn&&['Confirmed','In Production'].includes(p.stage);}).forEach(function(p){lines.push('  LIVE: '+p.name+' ('+p.client+')');if(p.nextAction)lines.push('  → '+p.nextAction.substring(0,100));});gP().filter(function(p){return p.brand===bn&&['Enquiry','Sample Sent','Quoted'].includes(p.stage);}).forEach(function(p){lines.push('  QUOTE: '+p.name+' ('+p.client+')');});lines.push('');});var text=lines.join('\n');if(navigator.clipboard)navigator.clipboard.writeText(text).then(function(){try{showToast('Copied ✓');}catch(e){}});else{var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);try{showToast('Copied ✓');}catch(e){}}}
-function emailReport(){
-  var today=new Date(),subj='Design Driven — Daily Report '+today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),lines=[];
-  lines.push('DESIGN DRIVEN — DAILY REPORT');
+
+/* @@BRAND-REPORT-JS@@ 2026-07-19 — Grassi/Friul-only Daily Report, same sections/logic as the Design Driven Daily Report (buildBrandReportBlock/buildReportSummaryBox), just scoped to one brand and no Avantgarde section */
+function buildBrandOnlyReport(brandName,bg){
+  var allActs=[];
+  var html=buildBrandReportBlock({name:brandName,bg:bg},allActs);
+  var sum=buildReportSummaryBox(allActs);
+  return sum+html;
+}
+function openGrassiDailyReport(){nav('grassi-report');renderGrassiReport();}
+function renderGrassiReport(){
+  var today=new Date();
+  var de=document.getElementById('grassiRptDate');
+  if(de)de.textContent='Generated: '+today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' at '+today.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  var body=document.getElementById('grassiReportBody');
+  if(body)body.innerHTML=buildBrandOnlyReport('Grassi Pietre','#E8873A');
+}
+function openFriulDailyReport(){nav('friul-report');renderFriulReport();}
+function renderFriulReport(){
+  var today=new Date();
+  var de=document.getElementById('friulRptDate');
+  if(de)de.textContent='Generated: '+today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' at '+today.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  var body=document.getElementById('friulReportBody');
+  if(body)body.innerHTML=buildBrandOnlyReport('Friul Mosaic','#3BAE85');
+}
+
+/* @@REPORT-COPY-EMAIL-SCOPE@@ 2026-07-19 — copyReport()/emailReport() now take an optional brands array so Grassi/Friul's own Daily Report screens can reuse them scoped to just one brand; calling with no args keeps the exact original all-brand behaviour for the Design Driven Daily Report. */
+function copyReport(brands){
+  brands=brands||['Grassi Pietre','Friul Mosaic','Agape'];
+  var title=brands.length===1?brands[0].toUpperCase():'DESIGN DRIVEN';
+  var today=new Date(),lines=[title+' — DAILY REPORT',today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),''];
+  brands.forEach(function(bn){lines.push('═══ '+bn.toUpperCase()+' ═══');gP().filter(function(p){return p.brand===bn&&['Confirmed','In Production'].includes(p.stage);}).forEach(function(p){lines.push('  LIVE: '+p.name+' ('+p.client+')');if(p.nextAction)lines.push('  → '+p.nextAction.substring(0,100));});gP().filter(function(p){return p.brand===bn&&['Enquiry','Sample Sent','Quoted'].includes(p.stage);}).forEach(function(p){lines.push('  QUOTE: '+p.name+' ('+p.client+')');});lines.push('');});
+  var text=lines.join('\n');if(navigator.clipboard)navigator.clipboard.writeText(text).then(function(){try{showToast('Copied ✓');}catch(e){}});else{var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);try{showToast('Copied ✓');}catch(e){}}
+}
+function emailReport(brands){
+  brands=brands||['Grassi Pietre','Friul Mosaic','Agape'];
+  var title=brands.length===1?brands[0]:'Design Driven';
+  var today=new Date(),subj=title+' — Daily Report '+today.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),lines=[];
+  lines.push(title.toUpperCase()+' — DAILY REPORT');
   lines.push(today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
   lines.push('');
-  ['Grassi Pietre','Friul Mosaic','Agape'].forEach(function(bn){
+  brands.forEach(function(bn){
     var bp=gP().filter(function(p){return p.brand===bn;});
     var bs=gS().filter(function(s){return s.brand===bn;});
     if(bp.length===0&&bs.length===0)return;
