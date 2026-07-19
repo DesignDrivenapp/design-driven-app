@@ -632,7 +632,7 @@ async function ppFaceId(){
     <div style="flex:1;text-align:center;"><div class="tb-title" id="brand-proj-title">Projects</div></div>
     <button class="tb-action" id="brand-proj-add" onclick="openNewProject()">+ Add</button>
   </div>
-  <!-- @@QUOTES-VALUE-GRAPH@@ 2026-07-19 — per-quote value graph, shown only above the list when viewing a brand's Quotes folder -->
+  <!-- @@QUOTES-VALUE-GRAPH@@ 2026-07-19 — per-project value graph, shown above the list on a brand's Quotes/Live Projects/Completed folders (2026-07-19: extended from Quotes-only to also cover Live Projects and Completed) -->
   <div id="quotesValueGraph" style="display:none;">
     <div class="snap-summary" id="quotesValueSummary"></div>
     <div style="padding:0 20px 12px;display:flex;justify-content:center;">
@@ -640,7 +640,7 @@ async function ppFaceId(){
         <div id="quotesValueRows"></div>
         <div class="orders-divider"></div>
         <div style="text-align:center;padding-top:8px;">
-          <span style="font-size:12px;color:var(--sub);">Total quoted </span>
+          <span id="quotesValueFooterLabel" style="font-size:12px;color:var(--sub);">Total quoted </span>
           <span id="quotesValueTotal" style="font-size:18px;font-weight:600;color:var(--dark);">€0</span>
         </div>
       </div>
@@ -2750,7 +2750,7 @@ function navGrassiFolder(filter){
   nav("brand-projects");
   const g=projects.filter(p=>p.brand==="Grassi Pietre");
   const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>FILTER_MAP[filter].includes(p.stage)):g;
-  renderQuotesValueGraph(filter==="live-quotes"?filtered:null,"#C4956A");
+  renderQuotesValueGraph(PROJ_VALUE_GRAPH_LABELS[filter]?filtered:null,"#C4956A",PROJ_VALUE_GRAPH_LABELS[filter]);
   renderProjects(filtered,"brandProjectsList",filter);
 }
 
@@ -4137,7 +4137,7 @@ function navFriulFolder(filter){
   nav("brand-projects");
   const g=projects.filter(p=>p.brand==="Friul Mosaic");
   const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>FILTER_MAP[filter].includes(p.stage)):g;
-  renderQuotesValueGraph(filter==="live-quotes"?filtered:null,"#1D9E75");
+  renderQuotesValueGraph(PROJ_VALUE_GRAPH_LABELS[filter]?filtered:null,"#1D9E75",PROJ_VALUE_GRAPH_LABELS[filter]);
   renderProjects(filtered,"brandProjectsList",filter);
 }
 // ── LABEL SCANNER ─────────────────────────────────────────────────────────
@@ -4423,22 +4423,28 @@ function renderFriulStats(){
   }catch(e){}
 }
 
-/* @@QUOTES-VALUE-GRAPH-JS@@ 2026-07-19 — per-quote value bar graph, shown above the list on a brand's Quotes folder screen (Grassi + Friul). Same visual language as the Sales by Client / Orders tiles, one bar per quote instead of per client. */
-function renderQuotesValueGraph(list,color){
+/* @@QUOTES-VALUE-GRAPH-JS@@ 2026-07-19 — per-project value bar graph, shown above the list on a brand's Quotes/Live Projects/Completed folder screens (Grassi + Friul). Same visual language as the Sales by Client / Orders tiles, one bar per project instead of per client. labels lets each folder (Quotes/Live/Completed) customise the summary-card + footer wording while sharing the same rendering. */
+function renderQuotesValueGraph(list,color,labels){
   var wrap=document.getElementById('quotesValueGraph');
   if(!wrap)return;
   var rowsEl0=document.getElementById('quotesValueRows');
   if(!list||!list.length){wrap.style.display='none';if(rowsEl0)rowsEl0.innerHTML='';return;}
-  var items=list.map(function(p){return {name:p.name||p.client||'Quote',val:pEur(p.exvat||p.value||0)};}).filter(function(i){return i.val>0;}).sort(function(a,b){return b.val-a.val;});
+  var items=list.map(function(p){return {name:p.name||p.client||'Project',val:pEur(p.exvat||p.value||0)};}).filter(function(i){return i.val>0;}).sort(function(a,b){return b.val-a.val;});
   if(!items.length){wrap.style.display='none';if(rowsEl0)rowsEl0.innerHTML='';return;}
   wrap.style.display='block';
   var col=color||'var(--accent)';
+  labels=labels||{};
+  var totalCardLbl=labels.totalCardLbl||'Total Quoted';
+  var countLbl=labels.countLbl||'Quotes';
+  var footerLbl=labels.footerLbl||'Total quoted';
   var total=items.reduce(function(s,i){return s+i.val;},0);
   var maxV=Math.max.apply(null,items.map(function(i){return i.val;}));
 
   var su=document.getElementById('quotesValueSummary');
-  if(su)su.innerHTML='<div class="snap-card"><div class="snap-card-val" id="qvg-total-card">€0</div><div class="snap-card-lbl">Total Quoted</div></div>'
-    +'<div class="snap-card"><div class="snap-card-val">'+items.length+'</div><div class="snap-card-lbl">Quotes</div></div>';
+  if(su)su.innerHTML='<div class="snap-card"><div class="snap-card-val" id="qvg-total-card">€0</div><div class="snap-card-lbl">'+totalCardLbl+'</div></div>'
+    +'<div class="snap-card"><div class="snap-card-val">'+items.length+'</div><div class="snap-card-lbl">'+countLbl+'</div></div>';
+
+  var flEl=document.getElementById('quotesValueFooterLabel'); if(flEl)flEl.textContent=footerLbl+' ';
 
   var rowsEl=document.getElementById('quotesValueRows');
   if(rowsEl)rowsEl.innerHTML=items.map(function(it,i){
@@ -4455,6 +4461,13 @@ function renderQuotesValueGraph(list,color){
     var el=document.getElementById('qvg-total-card'); if(el)animateValue(el,0,total,1200,function(v,e){if(e)e.textContent='€'+Math.round(v).toLocaleString('en-GB');});
   }catch(e){}
 }
+
+// @@PROJ-VALUE-GRAPH-LABELS@@ shared per-filter wording so Quotes/Live/Completed all read naturally
+var PROJ_VALUE_GRAPH_LABELS={
+  'live-quotes':{totalCardLbl:'Total Quoted',countLbl:'Quotes',footerLbl:'Total quoted'},
+  'live-projects':{totalCardLbl:'Total Value',countLbl:'Projects',footerLbl:'Total value'},
+  'completed':{totalCardLbl:'Total Completed',countLbl:'Projects',footerLbl:'Total completed'}
+};
 
 /* @@AGAPE-SALES-JS@@ Agape sales-by-client — same visual language as Orders/Commissions tiles + Monthly Snapshot summary cards */
 function openAgapeSalesByClient(){
