@@ -3539,6 +3539,8 @@ function ddRequestAvJobCreation(jobId,brand,client,linkedProjectId){
     ddFirestoreDb.collection('avJobCreationRequests').doc(jobId).set({
       jobId:jobId, brand:brand||'', client:client||'', linkedProjectId:linkedProjectId||'',
       requestedAt:new Date().toISOString(), status:'pending'
+    }).then(function(){
+      showToast('Avantgarde sync request sent ✓ (job appears within ~30 min)');
     }).catch(function(err){
       console.warn('avJobCreationRequests write failed',err);
       showToast('Saved locally, but the Avantgarde sync request failed - it will need to be created manually this time');
