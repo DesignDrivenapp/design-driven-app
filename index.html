@@ -3148,6 +3148,20 @@ function fmtDate(d){if(!d)return"";const dt=new Date(d);return dt.toLocaleDateSt
 function show(id,val){const el=document.getElementById(id);if(el)el.textContent=val||"—";}
 function showRow(rowId,val){const r=document.getElementById(rowId);if(r)r.style.display=val?"flex":"none";}
 function showWrap(wrapId,val){const w=document.getElementById(wrapId);if(w)w.style.display=val?"block":"none";}
+function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function formatActionLog(text){
+  if(!text) return "—";
+  const parts=String(text).split(/\s*\|\s*/).map(s=>s.trim()).filter(Boolean);
+  if(parts.length===0) return "—";
+  if(parts.length===1) return `<div style="line-height:1.5;">${escHtml(parts[0])}</div>`;
+  return parts.map((entry,i)=>
+    `<div style="display:flex;gap:8px;padding:8px 0;${i<parts.length-1?"border-bottom:1px solid var(--border);":""}">`+
+    `<span style="color:var(--light);flex-shrink:0;line-height:1.5;">•</span>`+
+    `<span style="flex:1;line-height:1.5;">${escHtml(entry)}</span>`+
+    `</div>`
+  ).join("");
+}
+function showLog(id,val){const el=document.getElementById(id);if(el)el.innerHTML=formatActionLog(val);}
 
 function viewProject(id){
   const p=projects.find(x=>x.id===id);if(!p)return;
@@ -3156,7 +3170,7 @@ function viewProject(id){
 
   // Project section
   show("d-client",p.client); show("d-brand",p.brand); show("d-stage",p.stage);
-  show("d-due",p.due?fmtDate(p.due):null); show("d-desc",p.desc); show("d-next",p.nextAction);
+  show("d-due",p.due?fmtDate(p.due):null); show("d-desc",p.desc); showLog("d-next",p.nextAction);
 
   // Financial section
   // Client contacts
