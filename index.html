@@ -1577,6 +1577,21 @@ async function ppFaceId(){
       <div class="det-row"><span class="det-l">Due</span><span class="det-v" id="d-due"></span></div>
       <div class="det-full"><div class="det-l">Description</div><div class="det-v" id="d-desc"></div></div>
       <div class="det-full"><div class="det-l">Next Action</div><div class="det-v det-urgent" id="d-next"></div></div>
+      <div class="det-full" id="d-contacts-wrap" style="margin-top:4px;">
+        <div class="det-l">Contacts</div>
+        <div style="margin-top:6px;">
+          <button class="btn-d" id="dc-toggle-d" onclick="ddToggleContactForm('d')" style="font-size:12px;padding:6px 12px;">+ Add contact</button>
+          <div id="dc-form-d" style="display:none;flex-direction:column;gap:6px;margin-top:8px;max-width:320px;">
+            <input class="fi" id="dc-name-d" placeholder="Name">
+            <input class="fi" id="dc-role-d" placeholder="Role (e.g. Architect)">
+            <input class="fi" id="dc-email-d" placeholder="Email">
+            <div style="display:flex;gap:8px;">
+              <button class="btn-p" onclick="ddSubmitContact('d', currentProjectId)" style="font-size:13px;padding:8px 14px;">Save contact</button>
+              <button class="btn-d" onclick="ddToggleContactForm('d',true)" style="font-size:13px;padding:8px 14px;">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- FINANCIAL -->
       <div id="d-finance-wrap">
@@ -3472,6 +3487,7 @@ function saveProject(){
       saveAvJobs();
       _avJobId=_newAv.id;
       p.linkedAvJobId=_avJobId;
+      ddRequestAvJobCreation(_newAv.id,_newAv.brand,_newAv.client,id);
     }
   }
   const idx=projects.findIndex(x=>x.id===id);
@@ -3489,6 +3505,40 @@ function saveProject(){
   }
 }
 
+function ddToggleContactForm(scope,forceHide){
+  var f=document.getElementById('dc-form-'+scope), t=document.getElementById('dc-toggle-'+scope);
+  if(!f)return;
+  var show=forceHide?false:(f.style.display==='none'||!f.style.display);
+  f.style.display=show?'flex':'none';
+  if(t)t.style.display=show?'none':'inline-block';
+}
+function ddSubmitContact(scope,linkedProjectId){
+  var name=gv('dc-name-'+scope), role=gv('dc-role-'+scope), email=gv('dc-email-'+scope);
+  if(!name||!email){showToast('Please enter at least a name and email');return;}
+  if(!linkedProjectId){showToast("This job isn't linked to a project yet - link it first, then add contacts.");return;}
+  if(typeof ddFirestoreDb==='undefined'||!ddFirestoreDb){showToast('Offline - try again when connected');return;}
+  ddFirestoreDb.collection('pendingContacts').add({
+    linkedProjectId:linkedProjectId, name:name, role:role||'', email:email,
+    source:scope==='av'?'avantgarde-page':'project-page',
+    addedAt:new Date().toISOString()
+  }).then(function(){
+    showToast('Contact added \u2713 (syncs within a few hours)');
+    ['dc-name-','dc-role-','dc-email-'].forEach(function(p){var el=document.getElementById(p+scope);if(el)el.value='';});
+    ddToggleContactForm(scope,true);
+  }).catch(function(err){
+    console.error('pendingContacts write failed',err);
+    showToast('Could not save contact - try again');
+  });
+}
+function ddRequestAvJobCreation(jobId,brand,client,linkedProjectId){
+  try{
+    if(typeof ddFirestoreDb==='undefined'||!ddFirestoreDb)return;
+    ddFirestoreDb.collection('avJobCreationRequests').doc(jobId).set({
+      jobId:jobId, brand:brand||'', client:client||'', linkedProjectId:linkedProjectId||'',
+      requestedAt:new Date().toISOString(), status:'pending'
+    }).catch(function(err){console.warn('avJobCreationRequests write failed',err);});
+  }catch(e){console.warn('ddRequestAvJobCreation error',e);}
+}
 function autoUpsertClient(project){
   if(!project.client) return;
   const existing = contacts.findIndex(c=>c.brand==="clients" &&
@@ -4466,6 +4516,18 @@ function checkTrackingManual(){
 
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+  try{
+    if(typeof firebase==='undefined'){window.ddFirestoreDb=null;return;}
+    var ddFirebaseConfig={apiKey:"AIzaSyCK_A11kEnvzEXf_-HTnBH0sonD9EPeQeU",authDomain:"design-driven-app.firebaseapp.com",projectId:"design-driven-app",storageBucket:"design-driven-app.firebasestorage.app",messagingSenderId:"355108791845",appId:"1:355108791845:web:e8579aca04ab5daa6b81cc",measurementId:"G-SSN1YWENVW"};
+    firebase.initializeApp(ddFirebaseConfig);
+    window.ddFirestoreDb=firebase.firestore();
+  }catch(e){console.warn('DD Firebase init failed (offline or blocked) - contact sync disabled this session',e);window.ddFirestoreDb=null;}
+})();
+</script>
 
 <div id="changePinModal" class="overlay" style="align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surface);border-radius:20px;width:100%;max-width:340px;padding:28px 24px 20px;box-shadow:0 8px 40px rgba(26,26,40,.22);">
@@ -5511,6 +5573,19 @@ function viewAvJob(id){
       ${j.startDate?`<div style="font-size:12px;color:var(--sub);margin-top:4px;">📅 Start: ${new Date(j.startDate+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
       ${linkedProj?`<button onclick="closeModal('avJobViewModal');viewProject('${linkedProj.id}')" style="background:var(--av-soft);border:1px solid var(--av);border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;color:var(--av);cursor:pointer;margin-top:8px;width:100%;">🔗 View supply project: ${linkedProj.name}</button>`:''}
       ${varTotal>0?`<div style="font-size:12px;color:#E65100;font-weight:600;margin-top:6px;">+£${varTotal.toLocaleString('en-GB',{minimumFractionDigits:2})} approved variations</div>`:''}
+      <div style="margin-top:10px;">
+        <button class="btn-d" id="dc-toggle-av" onclick="ddToggleContactForm('av')" style="font-size:12px;padding:6px 12px;">+ Add contact</button>
+        <div id="dc-form-av" style="display:none;flex-direction:column;gap:6px;margin-top:8px;max-width:320px;">
+          <input class="fi" id="dc-name-av" placeholder="Name">
+          <input class="fi" id="dc-role-av" placeholder="Role (e.g. Transport company)">
+          <input class="fi" id="dc-email-av" placeholder="Email">
+          <div style="display:flex;gap:8px;">
+            <button class="btn-p" onclick="ddSubmitContact('av','${(j.linkedProjectId||'').toString().replace(/'/g,"\\'")}')" style="font-size:13px;padding:8px 14px;">Save contact</button>
+            <button class="btn-d" onclick="ddToggleContactForm('av',true)" style="font-size:13px;padding:8px 14px;">Cancel</button>
+          </div>
+          ${!j.linkedProjectId?'<div style="font-size:11px;color:#C62828;margin-top:2px;">This job isn\'t linked to a project yet - contacts can\'t be saved until it is.</div>':''}
+        </div>
+      </div>
       <button onclick="avWhatsApp('${j.id}')" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:var(--rs);padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">💬 WhatsApp Brief</button>
       ${(j.installers||[]).length?`<button onclick="avSendInstallerLinks('${j.id}')" style="width:100%;background:#128C7E;color:#fff;border:none;border-radius:var(--rs);padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;">📱 Send Portal Link to Installer${(j.installers||[]).length>1?'s':''}</button>`:''}
       ${certBtn}
