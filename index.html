@@ -2258,8 +2258,21 @@ const FINISH_SURCHARGE = {
   "honed":0,"brushed":7,"bush":10,"bush-brush":17,"striated":55,
   "papyro":93,"myriam":93,"myriam-xl":170,"bombe":137,"canaletto":133,
   "gessato":96,"fluted":180,"corteccia":105,"sandblasted":53,
-  "ocean":110,"juta":147,"rock":128,"treatment":15,
+  "ocean":110,"juta":147,"rock":128,
 };
+
+// ---- EXTRAS (Grassi Pietre Listino Prezzi 2026) ----
+// These are additive to the finish above (e.g. a brushed tile can also get treatment + bevelling),
+// so they're kept separate from the single-select FINISHES dropdown rather than folded into it.
+// First hand of idro-oleo repellent treatment — "finiture sulle marmette" section, €/m²
+const TREATMENT_SURCHARGE = 20;
+// Perimetrical bevelling ("Aumento per bisellatura perimetrale 1x1mm") — LAVORAZIONI section, €/m², tiered by piece size
+const BEVEL_SURCHARGE = {"none":0,"over30":12,"under30":20};
+const BEVEL_OPTIONS = [
+  {v:"none",    l:"None"},
+  {v:"over30",  l:"Perimetrical bevelling ≥30×30cm (+€12/m²)"},
+  {v:"under30", l:"Perimetrical bevelling <30×30cm (+€20/m²)"},
+];
 
 const STONE_GROUPS = {
   vicenza: {
@@ -2319,7 +2332,6 @@ const FINISHES = [
   {v:"bush",       l:"Bushhammered/Sandblasted (+€10/m²)", min:2},
   {v:"bush-brush", l:"Bush + Brushed (+€17/m²)",           min:2},
   {v:"striated",   l:"Striated / Rullato (+€55/m²)",       min:2},
-  {v:"treatment",  l:"Waterproofing treatment (+€15/m²)",  min:2},
   {v:"papyro",     l:"Papyro CNC (+€93/m²)",              min:2},
   {v:"myriam",     l:"Myriam CNC (+€93/m²)",              min:2},
   {v:"myriam-xl",  l:"Myriam XL CNC (+€170/m²)",         min:3},
@@ -2338,6 +2350,11 @@ function getStoneGroup(stone){
   if(VICENZA_IDX[stone]!==undefined) return "vicenza";
   if(PALLADIO_IDX[stone]!==undefined) return "palladio";
   return "pietranova";
+}
+
+// Extras rate (€/m²) for a calc line: first hand of treatment + perimetrical bevelling. Additive on top of the finish surcharge.
+function getExtrasRate(l){
+  return (l.treatment?TREATMENT_SURCHARGE:0) + (BEVEL_SURCHARGE[l.bevel]||0);
 }
 
 function getBasePrice(stone, format, thick){
@@ -2377,6 +2394,7 @@ function calcAddLine(prefill){
   const id = ++calcLineId;
   const defaultLine = {
     id, stone:"grigio-alpi", format:"6060", thick:2, finish:"honed",
+    treatment:false, bevel:"none",
     area:100, ricotta:20, ricottaMode:'pct', desc:"",
   };
   calcLines.push(Object.assign(defaultLine, prefill||{}));
@@ -2421,7 +2439,8 @@ function calcRenderLines(){
   el.innerHTML=calcLines.map((l,i)=>{
     const baseRate=getBasePrice(l.stone,l.format,l.thick);
     const finishRate=FINISH_SURCHARGE[l.finish]||0;
-    const totalRate=baseRate+finishRate;
+    const extrasRate=getExtrasRate(l);
+    const totalRate=baseRate+finishRate+extrasRate;
     const grassiSub=totalRate*l.area;
     const afterDisc=grassiSub*(1-discount/100);
     const ricottaAmt=l.ricottaMode==='fixed'?l.ricotta:afterDisc*(l.ricotta/100);
@@ -2451,6 +2470,19 @@ function calcRenderLines(){
         <label class="fl">Finish</label>
         <select class="fs" onchange="calcLines[${i}].finish=this.value;calcRenderLines();">${finishOptions(l.finish, l.thick)}</select>
       </div>
+      <div class="frow" style="margin-bottom:6px;">
+        <div class="fg" style="margin-bottom:0;">
+          <label class="fl">Treatment</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;cursor:pointer;">
+            <input type="checkbox" ${l.treatment?"checked":""} onchange="calcLines[${i}].treatment=this.checked;calcRenderLines();">
+            First hand of treatment (+€${TREATMENT_SURCHARGE}/m²)
+          </label>
+        </div>
+        <div class="fg" style="margin-bottom:0;">
+          <label class="fl">Bevelling</label>
+          <select class="fs" onchange="calcLines[${i}].bevel=this.value;calcRenderLines();">${BEVEL_OPTIONS.map(b=>`<option value="${b.v}"${l.bevel===b.v?" selected":""}>${b.l}</option>`).join("")}</select>
+        </div>
+      </div>
       <div class="frow" style="margin-bottom:8px;">
         <div class="fg" style="margin-bottom:0;">
           <label class="fl">Area (m²)</label>
@@ -2476,7 +2508,7 @@ function calcRenderLines(){
         </div>
       </div>
       <div style="font-size:11px;color:var(--mid);background:var(--surface);border-radius:4px;padding:6px 8px;">
-        €${totalRate.toFixed(2)}/m² × ${l.area}m² = <b>€${grassiSub.toFixed(2)}</b> Grassi
+        €${baseRate.toFixed(2)}/m² base${finishRate?` + €${finishRate.toFixed(2)} finish`:""}${extrasRate?` + €${extrasRate.toFixed(2)} extras`:""} = €${totalRate.toFixed(2)}/m² × ${l.area}m² = <b>€${grassiSub.toFixed(2)}</b> Grassi
         ${discount>0?` − ${discount}% = €${afterDisc.toFixed(2)}`:""}
         + 🧀 ${l.ricottaMode==='fixed'?'€'+l.ricotta.toFixed(2):l.ricotta+'%'} = <b style="color:var(--dark);">€${lineTotal.toFixed(2)}</b>
       </div>
@@ -2493,7 +2525,7 @@ function calcUpdateTotals(){
   const discount=parseFloat(document.getElementById("calc-discount").value)||0;
   let totalGrassi=0,totalRicotta=0;
   calcLines.forEach(l=>{
-    const rate=getBasePrice(l.stone,l.format,l.thick)+(FINISH_SURCHARGE[l.finish]||0);
+    const rate=getBasePrice(l.stone,l.format,l.thick)+(FINISH_SURCHARGE[l.finish]||0)+getExtrasRate(l);
     const after=rate*l.area*(1-discount/100);
     totalGrassi+=after;
     totalRicotta+=l.ricottaMode==='fixed'?l.ricotta:after*(l.ricotta/100);
@@ -2525,12 +2557,18 @@ function calcExportExcel(){
     return s;
   };
   const finishLabel=f=>FINISHES.find(x=>x.v===f)?.l||f;
+  const extrasLabel=l=>{
+    const parts=[];
+    if(l.treatment) parts.push("First hand treatment");
+    if(l.bevel&&l.bevel!=="none") parts.push("Bevelling "+(l.bevel==="under30"?"<30×30cm":"≥30×30cm"));
+    return parts.join(" + ")||"—";
+  };
 
-  const headers=["Description","Stone","Format","Finish","Rate (€/m²)","Area (m²)","Grassi Subtotal","Discount %","After Discount","🧀 Ricotta %","Ricotta (€)","Line Total (€)"];
+  const headers=["Description","Stone","Format","Finish","Extras","Rate (€/m²)","Area (m²)","Grassi Subtotal","Discount %","After Discount","🧀 Ricotta %","Ricotta (€)","Line Total (€)"];
   const rows=[
-    [`Design Driven — Grassi Pietre Quote`,"","","","","","","","","","",""],
-    [`Client: ${client}   Project: ${project}`,"","","","","","","Date:",today,"","",""],
-    ["","","","","","","","","","","",""],
+    [`Design Driven — Grassi Pietre Quote`,"","","","","","","","","","","",""],
+    [`Client: ${client}   Project: ${project}`,"","","","","","","","Date:",today,"","",""],
+    ["","","","","","","","","","","","",""],
     headers,
   ];
 
@@ -2539,32 +2577,34 @@ function calcExportExcel(){
     const r=ds+i;
     const baseRate=getBasePrice(l.stone,l.format,l.thick);
     const finishRate=FINISH_SURCHARGE[l.finish]||0;
-    const totalRate=baseRate+finishRate;
+    const extrasRate=getExtrasRate(l);
+    const totalRate=baseRate+finishRate+extrasRate;
     rows.push([
       l.desc||`Line ${i+1}`,
       stoneLabel(l.stone),
       getFormatsForStone(l.stone).find(f=>f.v===l.format)?.l||l.format,
       finishLabel(l.finish),
+      extrasLabel(l),
       totalRate,
       l.area,
-      {f:`E${r}*F${r}`},
+      {f:`F${r}*G${r}`},
       discount/100,
-      {f:`G${r}*(1-H${r})`},
+      {f:`H${r}*(1-I${r})`},
       l.ricottaMode==='fixed'?null:l.ricotta/100,
-      l.ricottaMode==='fixed'?l.ricotta:{f:`I${r}*J${r}`},
-      {f:`I${r}+K${r}`},
+      l.ricottaMode==='fixed'?l.ricotta:{f:`J${r}*K${r}`},
+      {f:`J${r}+L${r}`},
     ]);
   });
 
   const tr=ds+calcLines.length;
-  rows.push(["","","","","","","","","","","",""]);
-  rows.push(["","","","","","","","","TOTAL Grassi cost","",(calcLines.length?{f:`SUM(I${ds}:I${tr-2})`}:0),""]);
-  rows.push(["","","","","","","","","TOTAL Ricotta","","",(calcLines.length?{f:`SUM(K${ds}:K${tr-2})`}:"")]);
-  rows.push(["","","","","","","","","CLIENT PRICE","","",{f:calcLines.length?`SUM(L${ds}:L${tr-2})`:"0"}]);
-  rows.push(["Ex-works Nanto · VAT excluded · Transport excluded","","","","","","","","","","",""]);
+  rows.push(["","","","","","","","","","","","",""]);
+  rows.push(["","","","","","","","","","TOTAL Grassi cost","",(calcLines.length?{f:`SUM(J${ds}:J${tr-1})`}:0),""]);
+  rows.push(["","","","","","","","","","TOTAL Ricotta","","",(calcLines.length?{f:`SUM(L${ds}:L${tr-1})`}:"")]);
+  rows.push(["","","","","","","","","","CLIENT PRICE","","",{f:calcLines.length?`SUM(M${ds}:M${tr-1})`:"0"}]);
+  rows.push(["Ex-works Nanto · VAT excluded · Transport excluded","","","","","","","","","","","",""]);
 
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"]=[{wch:20},{wch:22},{wch:18},{wch:20},{wch:12},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:12},{wch:14}];
+  ws["!cols"]=[{wch:20},{wch:22},{wch:18},{wch:20},{wch:26},{wch:12},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:12},{wch:14}];
 
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"Quote");
@@ -2587,11 +2627,12 @@ function calcSaveAsProject(){
   let notes="";
   try{
     notes=calcLines.map(function(l,i){
-      const rate=(getBasePrice(l.stone,l.format,l.thick)||0)+(FINISH_SURCHARGE[l.finish]||0);
+      const rate=(getBasePrice(l.stone,l.format,l.thick)||0)+(FINISH_SURCHARGE[l.finish]||0)+getExtrasRate(l);
       const afterDisc=rate*(l.area||0)*(1-discount/100);
       const ricotta=parseFloat(l.ricotta)||0;
       const ricottaAmt=l.ricottaMode==="fixed"?ricotta:afterDisc*(ricotta/100);
-      return "Line "+(i+1)+": "+(l.stone||"")+" "+(l.format||"")+" "+(l.finish||"")
+      const extrasLabel=[l.treatment?"+treatment":"",l.bevel&&l.bevel!=="none"?"+bevelling("+(l.bevel==="under30"?"<30x30":"≥30x30")+")":""].filter(Boolean).join(" ");
+      return "Line "+(i+1)+": "+(l.stone||"")+" "+(l.format||"")+" "+(l.finish||"")+(extrasLabel?" "+extrasLabel:"")
         +" — €"+rate.toFixed(2)+"/m² × "+(l.area||0)+"m²"
         +(discount>0?" (−"+discount+"% disc.)":"")
         +" + ricotta: "+(l.ricottaMode==="fixed"?"€"+ricotta.toFixed(2):ricotta+"% = €"+ricottaAmt.toFixed(2));
