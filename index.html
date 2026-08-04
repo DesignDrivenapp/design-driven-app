@@ -3532,12 +3532,21 @@ function ddSubmitContact(scope,linkedProjectId){
 }
 function ddRequestAvJobCreation(jobId,brand,client,linkedProjectId){
   try{
-    if(typeof ddFirestoreDb==='undefined'||!ddFirestoreDb)return;
+    if(typeof ddFirestoreDb==='undefined'||!ddFirestoreDb){
+      showToast('Saved locally, but could not reach the sync service - Avantgarde job creation needs to be finished manually this time');
+      return;
+    }
     ddFirestoreDb.collection('avJobCreationRequests').doc(jobId).set({
       jobId:jobId, brand:brand||'', client:client||'', linkedProjectId:linkedProjectId||'',
       requestedAt:new Date().toISOString(), status:'pending'
-    }).catch(function(err){console.warn('avJobCreationRequests write failed',err);});
-  }catch(e){console.warn('ddRequestAvJobCreation error',e);}
+    }).catch(function(err){
+      console.warn('avJobCreationRequests write failed',err);
+      showToast('Saved locally, but the Avantgarde sync request failed - it will need to be created manually this time');
+    });
+  }catch(e){
+    console.warn('ddRequestAvJobCreation error',e);
+    showToast('Saved locally, but the Avantgarde sync request failed - it will need to be created manually this time');
+  }
 }
 function autoUpsertClient(project){
   if(!project.client) return;
