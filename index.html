@@ -2381,7 +2381,10 @@ function getStoneGroup(stone){
 // Extras rate (€/m²) for a calc line: first hand of treatment + retinatura (mesh) + perimetrical bevelling.
 // Additive on top of the finish surcharge.
 function getExtrasRate(l){
-  return (l.treatment?TREATMENT_SURCHARGE:0) + (l.retinatura?RETINATURA_SURCHARGE:0) + (BEVEL_SURCHARGE[l.bevel]||0);
+  // Treatment and bevelling aren't offered on Palladio (per Michele) — computed here too, not just hidden
+  // in the UI, so a line built with those fields already set (e.g. from a prefill) can't silently price them.
+  const isPalladio=getStoneGroup(l.stone)==="palladio";
+  return (l.treatment&&!isPalladio?TREATMENT_SURCHARGE:0) + (l.retinatura?RETINATURA_SURCHARGE:0) + (isPalladio?0:(BEVEL_SURCHARGE[l.bevel]||0));
 }
 
 function getBasePrice(stone, format, thick){
@@ -2433,10 +2436,11 @@ function calcRemoveLine(id){
   calcRenderLines();
 }
 
-// Switching stone can change the stone group (e.g. Vicenza → Palladio), and not every finish is offered
-// on every group (CNC finishes and "Bush + Brushed" are Vicenza/Pietranova only; "Flamed" is Palladio only).
-// Reset to honed if the currently-selected finish isn't valid for the new group, rather than silently
-// keeping an invalid finish selected (which would price at €0 extra since getFinishRate falls through).
+// Switching stone can change the stone group (e.g. Vicenza → Palladio), and not every finish/extra is
+// offered on every group (CNC finishes and "Bush + Brushed" are Vicenza/Pietranova only; "Flamed" is
+// Palladio only; per Michele, Palladio doesn't take the idro-oleo treatment or perimetrical bevelling
+// at all). Reset anything that isn't valid for the new group, rather than silently carrying a price for
+// an option that's now hidden from the UI.
 function calcLineStoneChange(i, stone){
   const line=calcLines[i];
   line.stone=stone;
@@ -2444,6 +2448,7 @@ function calcLineStoneChange(i, stone){
   const newGroup=getStoneGroup(stone);
   const f=FINISHES.find(x=>x.v===line.finish);
   if(!f||!finishAppliesTo(f,newGroup)) line.finish="honed";
+  if(newGroup==="palladio"){ line.treatment=false; line.bevel="none"; }
   calcRenderLines();
 }
 
@@ -2515,14 +2520,13 @@ function calcRenderLines(){
         <select class="fs" onchange="calcLines[${i}].finish=this.value;calcRenderLines();">${finishOptions(l.stone, l.finish, l.thick)}</select>
       </div>
       <div class="frow" style="margin-bottom:6px;">
-        <div class="fg" style="margin-bottom:0;">
+        ${group!=="palladio"?`<div class="fg" style="margin-bottom:0;">
           <label class="fl">Treatment</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;cursor:pointer;">
             <input type="checkbox" ${l.treatment?"checked":""} onchange="calcLines[${i}].treatment=this.checked;calcRenderLines();">
             First hand of treatment (+€${TREATMENT_SURCHARGE}/m²)
           </label>
-          ${group==="palladio"?`<div style="font-size:10px;color:var(--light);margin-top:3px;">Rate not printed for Palladio in the pricelist — confirm with Grassi Pietre.</div>`:""}
-        </div>
+        </div>`:""}
         <div class="fg" style="margin-bottom:0;">
           <label class="fl">Mesh (retinatura)</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;cursor:pointer;">
@@ -2531,10 +2535,10 @@ function calcRenderLines(){
           </label>
         </div>
       </div>
-      <div class="fg" style="margin-bottom:8px;">
+      ${group!=="palladio"?`<div class="fg" style="margin-bottom:8px;">
         <label class="fl">Bevelling</label>
         <select class="fs" onchange="calcLines[${i}].bevel=this.value;calcRenderLines();">${BEVEL_OPTIONS.map(b=>`<option value="${b.v}"${l.bevel===b.v?" selected":""}>${b.l}</option>`).join("")}</select>
-      </div>
+      </div>`:""}
       <div class="frow" style="margin-bottom:8px;">
         <div class="fg" style="margin-bottom:0;">
           <label class="fl">Area (m²)</label>
@@ -2610,10 +2614,11 @@ function calcExportExcel(){
   };
   const finishLabel=f=>FINISHES.find(x=>x.v===f)?.l||f;
   const extrasLabel=l=>{
+    const isPalladio=getStoneGroup(l.stone)==="palladio";
     const parts=[];
-    if(l.treatment) parts.push("First hand treatment");
+    if(l.treatment&&!isPalladio) parts.push("First hand treatment");
     if(l.retinatura) parts.push("Mesh + resin");
-    if(l.bevel&&l.bevel!=="none") parts.push("Bevelling "+(l.bevel==="under30"?"<30×30cm":"≥30×30cm"));
+    if(l.bevel&&l.bevel!=="none"&&!isPalladio) parts.push("Bevelling "+(l.bevel==="under30"?"<30×30cm":"≥30×30cm"));
     return parts.join(" + ")||"—";
   };
 
@@ -2684,7 +2689,8 @@ function calcSaveAsProject(){
       const afterDisc=rate*(l.area||0)*(1-discount/100);
       const ricotta=parseFloat(l.ricotta)||0;
       const ricottaAmt=l.ricottaMode==="fixed"?ricotta:afterDisc*(ricotta/100);
-      const extrasLabel=[l.treatment?"+treatment":"",l.retinatura?"+mesh":"",l.bevel&&l.bevel!=="none"?"+bevelling("+(l.bevel==="under30"?"<30x30":"≥30x30")+")":""].filter(Boolean).join(" ");
+      const isPalladioLine=getStoneGroup(l.stone)==="palladio";
+      const extrasLabel=[l.treatment&&!isPalladioLine?"+treatment":"",l.retinatura?"+mesh":"",l.bevel&&l.bevel!=="none"&&!isPalladioLine?"+bevelling("+(l.bevel==="under30"?"<30x30":"≥30x30")+")":""].filter(Boolean).join(" ");
       return "Line "+(i+1)+": "+(l.stone||"")+" "+(l.format||"")+" "+(l.finish||"")+(extrasLabel?" "+extrasLabel:"")
         +" — €"+rate.toFixed(2)+"/m² × "+(l.area||0)+"m²"
         +(discount>0?" (−"+discount+"% disc.)":"")
