@@ -866,6 +866,9 @@ async function ppFaceId(){
         <div style="display:flex;justify-content:space-between;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:4px;">
           <span>Grassi cost (after discount)</span><span id="calc-cost">€0</span>
         </div>
+        <div id="calc-packaging-row" style="display:none;justify-content:space-between;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:4px;">
+          <span>📦 Packaging surcharge (&lt;100m²)</span><span id="calc-packaging">€0</span>
+        </div>
         <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--gold);">
           <span>🧀 Ricotta total</span><span id="calc-ricotta-total">€0</span>
         </div>
@@ -2285,6 +2288,11 @@ const TREATMENT_SURCHARGE = 20;
 const RETINATURA_SURCHARGE = 48;
 // Perimetrical bevelling ("Aumento per bisellatura perimetrale 1x1mm") — LAVORAZIONI section, €/m², tiered by piece size
 const BEVEL_SURCHARGE = {"none":0,"over30":12,"under30":20};
+// Packaging surcharge for small orders — Grassi charges packaging separately below a minimum order
+// volume; Michele's rule (2026-08-04): orders totalling under 100m² across all lines get +€3/m²
+// packaging surcharge, applied automatically to the whole order (not per line, not marked up by Ricotta).
+const PACKAGING_SURCHARGE_RATE = 3;
+const PACKAGING_SURCHARGE_THRESHOLD = 100;
 const BEVEL_OPTIONS = [
   {v:"none",    l:"None"},
   {v:"over30",  l:"Perimetrical bevelling ≥30×30cm (+€12/m²)"},
@@ -2579,17 +2587,30 @@ function calcRenderLines(){
 
 function calcUpdateTotals(){
   const discount=parseFloat(document.getElementById("calc-discount").value)||0;
-  let totalGrassi=0,totalRicotta=0;
+  let totalGrassi=0,totalRicotta=0,totalArea=0;
   calcLines.forEach(l=>{
     const rate=getBasePrice(l.stone,l.format,l.thick)+getFinishRate(getStoneGroup(l.stone),l.finish)+getExtrasRate(l);
     const after=rate*l.area*(1-discount/100);
     totalGrassi+=after;
     totalRicotta+=l.ricottaMode==='fixed'?l.ricotta:after*(l.ricotta/100);
+    totalArea+=l.area||0;
   });
+  const packaging=calcPackagingSurcharge(totalArea);
   const fmt=n=>"€"+n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById("calc-cost").textContent=fmt(totalGrassi);
+  const pkgRow=document.getElementById("calc-packaging-row");
+  if(pkgRow) pkgRow.style.display=packaging>0?"flex":"none";
+  const pkgEl=document.getElementById("calc-packaging");
+  if(pkgEl) pkgEl.textContent=fmt(packaging);
   document.getElementById("calc-ricotta-total").textContent=fmt(totalRicotta);
-  document.getElementById("calc-total").textContent=fmt(totalGrassi+totalRicotta);
+  document.getElementById("calc-total").textContent=fmt(totalGrassi+totalRicotta+packaging);
+}
+
+// Packaging surcharge on the whole order (sum of all line areas), not per line — Grassi's minimum-volume
+// rule applies to the total order size, so a 40m² + 40m² split across two lines still totals 80m² (<100)
+// and still gets the surcharge.
+function calcPackagingSurcharge(totalArea){
+  return (totalArea>0 && totalArea<PACKAGING_SURCHARGE_THRESHOLD) ? totalArea*PACKAGING_SURCHARGE_RATE : 0;
 }
 
 function calcReset(){
@@ -2655,10 +2676,13 @@ function calcExportExcel(){
   });
 
   const tr=ds+calcLines.length;
+  const totalAreaXl=calcLines.reduce((s,l)=>s+(l.area||0),0);
+  const packagingXl=calcPackagingSurcharge(totalAreaXl);
   rows.push(["","","","","","","","","","","","",""]);
   rows.push(["","","","","","","","","","TOTAL Grassi cost","",(calcLines.length?{f:`SUM(J${ds}:J${tr-1})`}:0),""]);
   rows.push(["","","","","","","","","","TOTAL Ricotta","","",(calcLines.length?{f:`SUM(L${ds}:L${tr-1})`}:"")]);
-  rows.push(["","","","","","","","","","CLIENT PRICE","","",{f:calcLines.length?`SUM(M${ds}:M${tr-1})`:"0"}]);
+  rows.push(["","","","","","","","","",`Packaging surcharge (<${PACKAGING_SURCHARGE_THRESHOLD}m² · €${PACKAGING_SURCHARGE_RATE}/m²)`,"","",packagingXl]);
+  rows.push(["","","","","","","","","","CLIENT PRICE","","",{f:calcLines.length?`SUM(M${ds}:M${tr-1})+${packagingXl}`:`${packagingXl}`}]);
   rows.push(["Ex-works Nanto · VAT excluded · Transport excluded","","","","","","","","","","","",""]);
 
   const ws=XLSX.utils.aoa_to_sheet(rows);
@@ -2696,6 +2720,9 @@ function calcSaveAsProject(){
         +(discount>0?" (−"+discount+"% disc.)":"")
         +" + ricotta: "+(l.ricottaMode==="fixed"?"€"+ricotta.toFixed(2):ricotta+"% = €"+ricottaAmt.toFixed(2));
     }).join("\n");
+    const totalAreaNotes=calcLines.reduce((s,l)=>s+(l.area||0),0);
+    const packagingNotes=calcPackagingSurcharge(totalAreaNotes);
+    if(packagingNotes>0) notes+="\nPackaging surcharge (order <"+PACKAGING_SURCHARGE_THRESHOLD+"m²): "+totalAreaNotes+"m² × €"+PACKAGING_SURCHARGE_RATE+"/m² = €"+packagingNotes.toFixed(2);
   }catch(e){notes="[See calculator for breakdown]";}
   try{
     const p={id:Date.now().toString(),name:projectName,brand:"Grassi Pietre",stage:"Quoted",client,
