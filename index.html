@@ -2253,19 +2253,36 @@ const PIETRANOVA_PRICES = {
   "3060":123,"4060":132,"6060":136,"cts-small":195,"cts-large":245,
 };
 
-// Finishes (surcharge on honed tile price, €/m²)
-const FINISH_SURCHARGE = {
-  "honed":0,"brushed":7,"bush":10,"bush-brush":17,"striated":55,
-  "papyro":93,"myriam":93,"myriam-xl":170,"bombe":137,"canaletto":133,
-  "gessato":96,"fluted":180,"corteccia":105,"sandblasted":53,
-  "ocean":110,"juta":147,"rock":128,
+// Tile finish surcharges (€/m²) on top of the honed tile base price — Grassi Pietre Listino Prezzi 2026,
+// "finiture sulle marmette" sections. Rates genuinely differ by stone group (Vicenza ≠ Palladio ≠ Pietranova),
+// so these are looked up per group rather than as one flat table (this was previously a bug — a single
+// universal table was applied to all three groups, which undercharged/overcharged depending on the stone).
+const FINISH_SURCHARGE_BY_GROUP = {
+  vicenza:    {"sawn":-10,"honed":0,"brushed":7,"bush":10,"bush-brush":17,"striated":55},
+  pietranova: {"sawn":-15,"honed":0,"brushed":7,"bush":10,"bush-brush":17,"striated":55},
+  palladio:   {"sawn":-10,"honed":0,"brushed":8,"flamed":25,"flamed-brush":47,"bush":14,"striated":94},
 };
+// CNC & waterjet finishes on tiles (€/m²) — Vicenza and Pietranova only; the pricelist has no CNC section for Palladio.
+const CNC_SURCHARGE = {
+  "papyro":93,"myriam":93,"myriam-xl":170,"bombe":137,"canaletto":133,
+  "gessato":96,"fluted":180,"corteccia":106,"sandblasted":56,"ocean":90,"juta":147,"rock":132,
+};
+function getFinishRate(group, finish){
+  const byGroup=FINISH_SURCHARGE_BY_GROUP[group]||{};
+  if(finish in byGroup) return byGroup[finish];
+  if(finish in CNC_SURCHARGE) return CNC_SURCHARGE[finish];
+  return 0;
+}
 
 // ---- EXTRAS (Grassi Pietre Listino Prezzi 2026) ----
-// These are additive to the finish above (e.g. a brushed tile can also get treatment + bevelling),
+// These are additive to the finish above (e.g. a brushed tile can also get treatment + bevelling + mesh),
 // so they're kept separate from the single-select FINISHES dropdown rather than folded into it.
-// First hand of idro-oleo repellent treatment — "finiture sulle marmette" section, €/m²
+// First hand of idro-oleo repellent treatment — "finiture sulle marmette" section, €/m². Printed explicitly
+// for Vicenza and Pietranova tiles; not listed on the Palladio tile page (same product/process — confirm
+// rate with Grassi Pietre before quoting it on a Palladio order).
 const TREATMENT_SURCHARGE = 20;
+// Retinatura (mesh + resin backing) — same €48/m² rate printed on all three groups' tile finish pages.
+const RETINATURA_SURCHARGE = 48;
 // Perimetrical bevelling ("Aumento per bisellatura perimetrale 1x1mm") — LAVORAZIONI section, €/m², tiered by piece size
 const BEVEL_SURCHARGE = {"none":0,"over30":12,"under30":20};
 const BEVEL_OPTIONS = [
@@ -2326,25 +2343,34 @@ const FORMATS_PIETRANOVA = [
   {v:"cts-small",l:"Cut to size (<80×40cm)"},{v:"cts-large",l:"Cut to size (>80×40cm)"},
 ];
 
+// group:null = offered on every stone group. group:"vicenza-pietranova" = Vicenza+Pietranova only.
+// group:"palladio" = Palladio only. €/m² rates are resolved per group via getFinishRate(), not hardcoded
+// here, since e.g. "brushed" is +€7/m² on Vicenza/Pietranova tiles but +€8/m² on Palladio tiles.
 const FINISHES = [
-  {v:"honed",      l:"Honed (standard)",                   min:2},
-  {v:"brushed",    l:"Brushed (+€7/m²)",                   min:2},
-  {v:"bush",       l:"Bushhammered/Sandblasted (+€10/m²)", min:2},
-  {v:"bush-brush", l:"Bush + Brushed (+€17/m²)",           min:2},
-  {v:"striated",   l:"Striated / Rullato (+€55/m²)",       min:2},
-  {v:"papyro",     l:"Papyro CNC (+€93/m²)",              min:2},
-  {v:"myriam",     l:"Myriam CNC (+€93/m²)",              min:2},
-  {v:"myriam-xl",  l:"Myriam XL CNC (+€170/m²)",         min:3},
-  {v:"fluted",     l:"Fluted CNC (+€180/m²)",             min:3},
-  {v:"bombe",      l:"Bombé CNC (+€137/m²)",              min:3},
-  {v:"canaletto",  l:"Canaletto CNC (+€133/m²)",          min:3},
-  {v:"gessato",    l:"Gessato CNC (+€96/m²)",             min:3},
-  {v:"corteccia",  l:"Corteccia CNC (+€105/m²)",          min:3},
-  {v:"sandblasted",l:'Sandblasted "P" CNC (+€53/m²)',     min:3},
-  {v:"ocean",      l:"Ocean CNC (+€110/m²)",              min:3},
-  {v:"juta",       l:"Juta CNC (+€147/m²)",               min:3},
-  {v:"rock",       l:"Rock finish CNC (+€128/m²)",        min:3},
+  {v:"sawn",         l:"Sawn / unfinished (piano sega)",  min:2, group:null},
+  {v:"honed",        l:"Honed (standard)",                min:2, group:null},
+  {v:"brushed",      l:"Brushed",                         min:2, group:null},
+  {v:"flamed",       l:"Flamed",                          min:2, group:"palladio"},
+  {v:"flamed-brush", l:"Flamed + Brushed",                min:2, group:"palladio"},
+  {v:"bush",         l:"Bushhammered/Sandblasted",        min:2, group:null},
+  {v:"bush-brush",   l:"Bush + Brushed",                  min:2, group:"vicenza-pietranova"},
+  {v:"striated",     l:"Striated / Rullato",              min:2, group:null},
+  {v:"papyro",       l:"Papyro CNC",                      min:2, group:"vicenza-pietranova"},
+  {v:"myriam",       l:"Myriam CNC",                      min:2, group:"vicenza-pietranova"},
+  {v:"myriam-xl",    l:"Myriam XL CNC",                   min:3, group:"vicenza-pietranova"},
+  {v:"fluted",       l:"Fluted CNC",                      min:3, group:"vicenza-pietranova"},
+  {v:"bombe",        l:"Bombé CNC",                       min:3, group:"vicenza-pietranova"},
+  {v:"canaletto",    l:"Canaletto CNC",                   min:3, group:"vicenza-pietranova"},
+  {v:"gessato",      l:"Gessato CNC",                     min:3, group:"vicenza-pietranova"},
+  {v:"corteccia",    l:"Corteccia CNC",                   min:3, group:"vicenza-pietranova"},
+  {v:"sandblasted",  l:'Sandblasted "P" CNC',             min:3, group:"vicenza-pietranova"},
+  {v:"ocean",        l:"Ocean CNC",                       min:3, group:"vicenza-pietranova"},
+  {v:"juta",         l:"Juta CNC",                        min:3, group:"vicenza-pietranova"},
+  {v:"rock",         l:"Rock finish CNC",                 min:3, group:"vicenza-pietranova"},
 ];
+function finishAppliesTo(f, group){
+  return f.group===null || f.group===group || (f.group==="vicenza-pietranova" && (group==="vicenza"||group==="pietranova"));
+}
 
 function getStoneGroup(stone){
   if(VICENZA_IDX[stone]!==undefined) return "vicenza";
@@ -2352,9 +2378,10 @@ function getStoneGroup(stone){
   return "pietranova";
 }
 
-// Extras rate (€/m²) for a calc line: first hand of treatment + perimetrical bevelling. Additive on top of the finish surcharge.
+// Extras rate (€/m²) for a calc line: first hand of treatment + retinatura (mesh) + perimetrical bevelling.
+// Additive on top of the finish surcharge.
 function getExtrasRate(l){
-  return (l.treatment?TREATMENT_SURCHARGE:0) + (BEVEL_SURCHARGE[l.bevel]||0);
+  return (l.treatment?TREATMENT_SURCHARGE:0) + (l.retinatura?RETINATURA_SURCHARGE:0) + (BEVEL_SURCHARGE[l.bevel]||0);
 }
 
 function getBasePrice(stone, format, thick){
@@ -2394,7 +2421,7 @@ function calcAddLine(prefill){
   const id = ++calcLineId;
   const defaultLine = {
     id, stone:"grigio-alpi", format:"6060", thick:2, finish:"honed",
-    treatment:false, bevel:"none",
+    treatment:false, retinatura:false, bevel:"none",
     area:100, ricotta:20, ricottaMode:'pct', desc:"",
   };
   calcLines.push(Object.assign(defaultLine, prefill||{}));
@@ -2403,6 +2430,20 @@ function calcAddLine(prefill){
 
 function calcRemoveLine(id){
   calcLines=calcLines.filter(l=>l.id!==id);
+  calcRenderLines();
+}
+
+// Switching stone can change the stone group (e.g. Vicenza → Palladio), and not every finish is offered
+// on every group (CNC finishes and "Bush + Brushed" are Vicenza/Pietranova only; "Flamed" is Palladio only).
+// Reset to honed if the currently-selected finish isn't valid for the new group, rather than silently
+// keeping an invalid finish selected (which would price at €0 extra since getFinishRate falls through).
+function calcLineStoneChange(i, stone){
+  const line=calcLines[i];
+  line.stone=stone;
+  line.format=getFormatsForStone(stone)[0].v;
+  const newGroup=getStoneGroup(stone);
+  const f=FINISHES.find(x=>x.v===line.finish);
+  if(!f||!finishAppliesTo(f,newGroup)) line.finish="honed";
   calcRenderLines();
 }
 
@@ -2423,10 +2464,13 @@ function formatOptions(stone, selectedFmt){
   ).join("");
 }
 
-function finishOptions(selected, thick){
-  return FINISHES.map(f=>{
+function finishOptions(stone, selected, thick){
+  const group=getStoneGroup(stone);
+  return FINISHES.filter(f=>finishAppliesTo(f,group)).map(f=>{
+    const rate=getFinishRate(group,f.v);
+    const rateLabel = rate>0 ? ` (+€${rate}/m²)` : (rate<0 ? ` (€${rate}/m²)` : "");
     const unavail = (f.min||2) > thick;
-    const label = unavail ? `${f.l} ⚠️ min ${f.min}cm` : f.l;
+    const label = (f.l+rateLabel) + (unavail?` ⚠️ min ${f.min}cm`:"");
     const style = unavail ? " style='color:#D32F2F;'" : "";
     return `<option value="${f.v}"${selected===f.v?" selected":""}${style}>${label}</option>`;
   }).join("");
@@ -2437,15 +2481,15 @@ function calcRenderLines(){
   if(!el) return;
   const discount=parseFloat(document.getElementById("calc-discount").value)||0;
   el.innerHTML=calcLines.map((l,i)=>{
+    const group=getStoneGroup(l.stone);
     const baseRate=getBasePrice(l.stone,l.format,l.thick);
-    const finishRate=FINISH_SURCHARGE[l.finish]||0;
+    const finishRate=getFinishRate(group,l.finish);
     const extrasRate=getExtrasRate(l);
     const totalRate=baseRate+finishRate+extrasRate;
     const grassiSub=totalRate*l.area;
     const afterDisc=grassiSub*(1-discount/100);
     const ricottaAmt=l.ricottaMode==='fixed'?l.ricotta:afterDisc*(l.ricotta/100);
     const lineTotal=afterDisc+ricottaAmt;
-    const group=getStoneGroup(l.stone);
     const thickOptions=[2,3,4,5].map(t=>`<option value="${t}"${l.thick===t?" selected":""}>${t}cm</option>`).join("");
     return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -2454,7 +2498,7 @@ function calcRenderLines(){
       </div>
       <div class="fg" style="margin-bottom:6px;">
         <label class="fl">Stone</label>
-        <select class="fs" onchange="calcLines[${i}].stone=this.value;calcLines[${i}].format=getFormatsForStone(this.value)[0].v;calcRenderLines();">${stoneOptions(l.stone)}</select>
+        <select class="fs" onchange="calcLineStoneChange(${i},this.value);">${stoneOptions(l.stone)}</select>
       </div>
       <div class="frow" style="margin-bottom:6px;">
         <div class="fg" style="margin-bottom:0;">
@@ -2468,7 +2512,7 @@ function calcRenderLines(){
       </div>
       <div class="fg" style="margin-bottom:6px;">
         <label class="fl">Finish</label>
-        <select class="fs" onchange="calcLines[${i}].finish=this.value;calcRenderLines();">${finishOptions(l.finish, l.thick)}</select>
+        <select class="fs" onchange="calcLines[${i}].finish=this.value;calcRenderLines();">${finishOptions(l.stone, l.finish, l.thick)}</select>
       </div>
       <div class="frow" style="margin-bottom:6px;">
         <div class="fg" style="margin-bottom:0;">
@@ -2477,11 +2521,19 @@ function calcRenderLines(){
             <input type="checkbox" ${l.treatment?"checked":""} onchange="calcLines[${i}].treatment=this.checked;calcRenderLines();">
             First hand of treatment (+€${TREATMENT_SURCHARGE}/m²)
           </label>
+          ${group==="palladio"?`<div style="font-size:10px;color:var(--light);margin-top:3px;">Rate not printed for Palladio in the pricelist — confirm with Grassi Pietre.</div>`:""}
         </div>
         <div class="fg" style="margin-bottom:0;">
-          <label class="fl">Bevelling</label>
-          <select class="fs" onchange="calcLines[${i}].bevel=this.value;calcRenderLines();">${BEVEL_OPTIONS.map(b=>`<option value="${b.v}"${l.bevel===b.v?" selected":""}>${b.l}</option>`).join("")}</select>
+          <label class="fl">Mesh (retinatura)</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;cursor:pointer;">
+            <input type="checkbox" ${l.retinatura?"checked":""} onchange="calcLines[${i}].retinatura=this.checked;calcRenderLines();">
+            Mesh + resin backing (+€${RETINATURA_SURCHARGE}/m²)
+          </label>
         </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px;">
+        <label class="fl">Bevelling</label>
+        <select class="fs" onchange="calcLines[${i}].bevel=this.value;calcRenderLines();">${BEVEL_OPTIONS.map(b=>`<option value="${b.v}"${l.bevel===b.v?" selected":""}>${b.l}</option>`).join("")}</select>
       </div>
       <div class="frow" style="margin-bottom:8px;">
         <div class="fg" style="margin-bottom:0;">
@@ -2525,7 +2577,7 @@ function calcUpdateTotals(){
   const discount=parseFloat(document.getElementById("calc-discount").value)||0;
   let totalGrassi=0,totalRicotta=0;
   calcLines.forEach(l=>{
-    const rate=getBasePrice(l.stone,l.format,l.thick)+(FINISH_SURCHARGE[l.finish]||0)+getExtrasRate(l);
+    const rate=getBasePrice(l.stone,l.format,l.thick)+getFinishRate(getStoneGroup(l.stone),l.finish)+getExtrasRate(l);
     const after=rate*l.area*(1-discount/100);
     totalGrassi+=after;
     totalRicotta+=l.ricottaMode==='fixed'?l.ricotta:after*(l.ricotta/100);
@@ -2560,6 +2612,7 @@ function calcExportExcel(){
   const extrasLabel=l=>{
     const parts=[];
     if(l.treatment) parts.push("First hand treatment");
+    if(l.retinatura) parts.push("Mesh + resin");
     if(l.bevel&&l.bevel!=="none") parts.push("Bevelling "+(l.bevel==="under30"?"<30×30cm":"≥30×30cm"));
     return parts.join(" + ")||"—";
   };
@@ -2576,7 +2629,7 @@ function calcExportExcel(){
   calcLines.forEach((l,i)=>{
     const r=ds+i;
     const baseRate=getBasePrice(l.stone,l.format,l.thick);
-    const finishRate=FINISH_SURCHARGE[l.finish]||0;
+    const finishRate=getFinishRate(getStoneGroup(l.stone),l.finish);
     const extrasRate=getExtrasRate(l);
     const totalRate=baseRate+finishRate+extrasRate;
     rows.push([
@@ -2627,11 +2680,11 @@ function calcSaveAsProject(){
   let notes="";
   try{
     notes=calcLines.map(function(l,i){
-      const rate=(getBasePrice(l.stone,l.format,l.thick)||0)+(FINISH_SURCHARGE[l.finish]||0)+getExtrasRate(l);
+      const rate=(getBasePrice(l.stone,l.format,l.thick)||0)+getFinishRate(getStoneGroup(l.stone),l.finish)+getExtrasRate(l);
       const afterDisc=rate*(l.area||0)*(1-discount/100);
       const ricotta=parseFloat(l.ricotta)||0;
       const ricottaAmt=l.ricottaMode==="fixed"?ricotta:afterDisc*(ricotta/100);
-      const extrasLabel=[l.treatment?"+treatment":"",l.bevel&&l.bevel!=="none"?"+bevelling("+(l.bevel==="under30"?"<30x30":"≥30x30")+")":""].filter(Boolean).join(" ");
+      const extrasLabel=[l.treatment?"+treatment":"",l.retinatura?"+mesh":"",l.bevel&&l.bevel!=="none"?"+bevelling("+(l.bevel==="under30"?"<30x30":"≥30x30")+")":""].filter(Boolean).join(" ");
       return "Line "+(i+1)+": "+(l.stone||"")+" "+(l.format||"")+" "+(l.finish||"")+(extrasLabel?" "+extrasLabel:"")
         +" — €"+rate.toFixed(2)+"/m² × "+(l.area||0)+"m²"
         +(discount>0?" (−"+discount+"% disc.)":"")
