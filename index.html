@@ -2972,7 +2972,7 @@ async function pushToGist(){
   const token=getToken(); if(!token) return;
   const ts=new Date().toISOString();
   localStorage.setItem(GIST_SYNC_KEY,ts);
-  const payload={files:{"dd-projects.json":{content:JSON.stringify({projects,contacts,samples,lastUpdated:ts},null,2)}}};
+  const payload={files:{"dd-projects.json":{content:JSON.stringify({projects,contacts,samples,avJobs:typeof avJobs!=='undefined'?avJobs:undefined,avInstallers:typeof avInstallers!=='undefined'?avInstallers:undefined,lastUpdated:ts},null,2)}}};
   try{
     const r=await fetch(`https://api.github.com/gists/${GIST_ID}`,{
       method:"PATCH",
@@ -3002,6 +3002,8 @@ async function syncFromGist(){
       if(gistData.projects){projects=gistData.projects;localStorage.setItem(PROJ_KEY,JSON.stringify(projects));}
       if(gistData.contacts){contacts=gistData.contacts;localStorage.setItem(CONT_KEY,JSON.stringify(contacts));}
       if(gistData.samples){samples=gistData.samples;localStorage.setItem(SAMP_KEY,JSON.stringify(samples));}
+      if(gistData.avJobs&&gistData.avJobs.length&&typeof avJobs!=='undefined'){avJobs=gistData.avJobs;localStorage.setItem('dd_av_jobs_v1',JSON.stringify(avJobs));}
+      if(gistData.avInstallers&&typeof avInstallers!=='undefined'){avInstallers=gistData.avInstallers;localStorage.setItem('dd_av_inst_v1',JSON.stringify(avInstallers));}
       localStorage.setItem(GIST_SYNC_KEY,gistTs);
       updateStats();
       updateSyncStatus("Updated from cloud ✓","var(--friul)");
