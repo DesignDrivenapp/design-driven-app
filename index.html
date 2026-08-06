@@ -2149,7 +2149,7 @@ async function ppFaceId(){
 <div class="overlay" id="avAddReviewModal">
   <div class="modal"><div class="mhandle"></div><div class="mhead"><span class="mtitle">Review before sending to Avantgarde</span><button class="mclose" onclick="closeModal('avAddReviewModal')">×</button></div>
   <div class="mbody"><input type="hidden" id="avar-projectId">
-    <div style="font-size:13px;color:var(--sub);margin-bottom:12px;">For <strong id="avar-projectName" style="color:var(--dark);"></strong> — tick what Avantgarde should see, and edit the text as needed. Anything left unticked never leaves this project.</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:12px;">For <strong id="avar-projectName" style="color:var(--dark);"></strong> — tick what Avantgarde should see, and edit the text as needed. Anything left unticked never leaves this project. Grassi/Friul pricing, invoices and payment details are auto-removed below - Avantgarde's own rates are kept - but always check before ticking.</div>
     <div id="avar-desc-row" class="fg" style="display:none;"><label class="fl" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="avar-desc-inc" style="width:16px;height:16px;">Description</label><textarea class="ft" id="avar-desc"></textarea></div>
     <div id="avar-nextAction-row" class="fg" style="display:none;"><label class="fl" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="avar-nextAction-inc" style="width:16px;height:16px;">Next Action</label><textarea class="ft" id="avar-nextAction"></textarea></div>
     <div id="avar-notes-row" class="fg" style="display:none;"><label class="fl" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="avar-notes-inc" style="width:16px;height:16px;">Notes</label><textarea class="ft" id="avar-notes"></textarea></div>
@@ -4228,6 +4228,28 @@ function addProjectToAvantgarde(id){
   }
   openAddToAvantgardeReview(id);
 }
+// Auto-strips Grassi/Friul commercial values from the text shown in the Avantgarde review
+// modal - added 2026-08-06 at Michele's request after finding raw order values/invoice
+// amounts still present in Next Action/Notes text even though those fields default to
+// unticked. Any line carrying a money amount or a clear commercial marker (invoice, proforma,
+// order value, VAT, saldo, balance due, quote, PO number, cash-flow, payment terms) is replaced
+// with a placeholder UNLESS the same line also references Avantgarde's OWN commercial detail
+// (day rate, installation/labour cost, crew rate, or the word "Avantgarde" itself) - those are
+// Avantgarde's own figures, already known to them, and Michele asked for those to stay. This
+// only cleans what's shown in this review box; it never touches the underlying Grassi/Friul
+// project data, and a field still has to be explicitly ticked before anything is saved or sent.
+var AV_MONEY_RE=/(?:£|€|\$|\bEUR\b|\bGBP\b|\bUSD\b)\s?\d[\d,]*(?:\.\d{1,2})?/i;
+var AV_SUPPLIER_MARKER_RE=/\b(invoice|proforma|order value|quote|quotation|saldo|balance due|advance payment|cash-?flow|VAT|PO\s?#?\d|payment terms|outstanding)\b/i;
+var AV_KEEP_SIGNAL_RE=/\bavantgarde\b|installation rate|install(?:ation)? cost|day rate|labour cost|crew rate|installer rate/i;
+function avStripSupplierValues(text){
+  if(!text) return text;
+  return text.split('\n').map(function(line){
+    var flagged=AV_MONEY_RE.test(line)||AV_SUPPLIER_MARKER_RE.test(line);
+    if(!flagged) return line;
+    if(AV_KEEP_SIGNAL_RE.test(line)) return line;
+    return '[Grassi/Friul commercial detail removed - review before ticking]';
+  }).join('\n');
+}
 var AV_ADD_REVIEW_FIELDS=[['desc','Description'],['nextAction','Next Action'],['notes','Notes'],['materialNotes','Material Notes']];
 function openAddToAvantgardeReview(id){
   const p=projects.find(x=>x.id===id); if(!p) return;
@@ -4235,7 +4257,7 @@ function openAddToAvantgardeReview(id){
   document.getElementById('avar-projectName').textContent=p.name||'';
   AV_ADD_REVIEW_FIELDS.forEach(function(f){
     const ta=document.getElementById('avar-'+f[0]), cb=document.getElementById('avar-'+f[0]+'-inc'), row=document.getElementById('avar-'+f[0]+'-row');
-    if(ta) ta.value=p[f[0]]||'';
+    if(ta) ta.value=avStripSupplierValues(p[f[0]]||'');
     if(cb) cb.checked=false;
     if(row) row.style.display=(p[f[0]]||'').trim()?'block':'none';
   });
@@ -5800,7 +5822,25 @@ function saveAvJob(){
   saveAvJobs();avSyncJobToFirestore(j);closeModal('avJobModal');filterAvJobs('all',document.querySelector('#avJobFilterRow .chip'));showToast('Saved ✓');
   avSendPushNotification('✏️ Job updated', (avCurrentUser?avCurrentUser.name:'Someone')+' updated '+(j.name||'a job'));
 }
-function deleteAvJob(){if(!currentAvJobId||!confirm('Delete?'))return;avJobs=avJobs.filter(j=>j.id!==currentAvJobId);saveAvJobs();closeModal('avJobModal');filterAvJobs('all',document.querySelector('#avJobFilterRow .chip'));}
+// 2026-08-06: deleting a job previously only removed it from this device's local list - the
+// Firestore record stayed behind (orphaned), and the source Grassi/Friul/Agape project kept
+// pointing at the now-gone job (so "View on Avantgarde" on that project would open nothing).
+// Now also deletes the Firestore doc and clears linkedAvJobId on the source project, so
+// "+ Add to Avantgarde" reappears there and a fresh job can be created cleanly.
+function deleteAvJob(){
+  if(!currentAvJobId||!confirm('Delete?'))return;
+  var _delId=currentAvJobId;
+  avJobs=avJobs.filter(j=>j.id!==_delId);
+  saveAvJobs();
+  try{ if(typeof avDb!=='undefined'&&avDb) avDb.collection('avJobs').doc(_delId).delete().catch(function(e){console.error('AV job Firestore delete failed',e);}); }catch(e){}
+  try{
+    var _lp=(typeof projects!=='undefined'?projects:[]).find(function(pp){return pp.linkedAvJobId===_delId;});
+    if(_lp){ _lp.linkedAvJobId=''; if(typeof saveProjects==='function') saveProjects(); }
+  }catch(e){}
+  closeModal('avJobModal');
+  filterAvJobs('all',document.querySelector('#avJobFilterRow .chip'));
+}
+
 
 // ── View (tabbed) ──────────────────────────────────────────────────────────────
 function switchAvTab(el,pid){document.querySelectorAll('.av-tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.av-tab-panel').forEach(p=>p.classList.remove('active'));el.classList.add('active');const p=document.getElementById(pid);if(p)p.classList.add('active');}
@@ -6863,6 +6903,45 @@ function avSyntheticEmail(name, suffix){
   return avSlug(name) + '-' + suffix + '@dd-app.internal';
 }
 
+// Pulls in any Avantgarde job that exists in Firestore but isn't in this device's local list -
+// added 2026-08-06 to close a gap where jobs auto-created by the automation pipeline (the
+// moment "Requires installation" is ticked on a Grassi/Friul project) were written to Firestore
+// correctly but never appeared here, because this screen was only ever driven by the local/
+// Gist-synced avJobs array with no Firestore read for the full collection. Runs once per
+// sign-in for owner/manager only. Never touches or overwrites an existing local job (matched
+// by id) - only adds ones genuinely missing, and only ones whose Firestore doc still exists
+// (so a job properly deleted via deleteAvJob, which now also deletes the Firestore doc, will
+// not come back).
+function avSyncJobsFromFirestore(){
+  if(typeof avDb==='undefined'||!avDb) return;
+  avDb.collection('avJobs').get().then(function(snap){
+    var added=0;
+    snap.forEach(function(doc){
+      var id=doc.id;
+      if(avJobs.some(function(j){return j.id===id;})) return;
+      var d=doc.data()||{};
+      avJobs.unshift({
+        id:id, name:d.name||d.client||id, brand:d.brand||'', status:d.status||'Upcoming',
+        client:d.client||'', location:d.location||'', startDate:d.startDate||'', endDate:d.endDate||'',
+        notes:d.notes||'', avAutoLog:d.avAutoLog||[],
+        installers:d.installers||[], docs:d.docs||{drawings:false,cuttingList:false,packingList:false,installNotes:false},
+        progress:d.progress||0, feed:d.feed||[], stages:d.stages||[], snags:d.snags||[], dailyLog:d.dailyLog||[], variations:d.variations||[],
+        linkedProjectId:d.linkedProjectId||'', updated:d.updated||new Date().toISOString()
+      });
+      added++;
+      if(d.linkedProjectId&&typeof projects!=='undefined'){
+        var p=projects.find(function(pp){return pp.id===d.linkedProjectId;});
+        if(p&&!p.linkedAvJobId) p.linkedAvJobId=id;
+      }
+    });
+    if(added){
+      saveAvJobs();
+      try{ if(typeof saveProjects==='function') saveProjects(); }catch(e){}
+      try{ if(typeof renderAvJobs==='function') renderAvJobs(avJobs); }catch(e){}
+      try{ if(typeof showToast==='function') showToast(added+' Avantgarde job'+(added>1?'s':'')+' synced from automation \u2713'); }catch(e){}
+    }
+  }).catch(function(e){ console.error('AV jobs Firestore sync failed', e); });
+}
 if (avAuth) {
   avAuth.onAuthStateChanged(function(user){
     if (!user) { avCurrentUser = null; return; }
@@ -6871,6 +6950,7 @@ if (avAuth) {
       var d = doc.data();
       if (d.active === false) { avAuth.signOut(); avCurrentUser = null; return; }
       avCurrentUser = { uid: user.uid, name: d.name, role: (d.role||'').toString().trim().toLowerCase(), company: d.company || '' };
+      if (avCurrentUser.role==='owner'||avCurrentUser.role==='manager') { try{ avSyncJobsFromFirestore(); }catch(e){console.error('AV jobs sync trigger failed',e);} }
       if (avPendingNav) { var t = avPendingNav; avPendingNav = null; nav(t); }
     }).catch(function(e){ console.error('AV user doc read failed', e); avCurrentUser = null; });
   });
