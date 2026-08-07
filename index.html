@@ -6273,14 +6273,24 @@ function avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller){
   }
   if(!notes&&!autoLog.length) return '';
   var isOwner=avCurrentUser&&avCurrentUser.role==='owner';
-  // Belt-and-suspenders: notes/autoLog are also stripped where they're written (saveAvJob, the
-  // Add-to-Avantgarde review step), but avAutoLog entries are written directly to Firestore by
-  // the email-sync automation and never pass through that code, and older jobs may still carry
-  // raw text saved before the strip existed. Stripping again here, at render time, means every
-  // Avantgarde-facing view is safe regardless of how or when the underlying text got in.
+  // The free-typed Notes field still always gets stripped for non-owners - Michele can paste
+  // anything into it from any Grassi/Friul correspondence, whether or not Avantgarde was ever
+  // on that email, so there's no way to know it's safe.
   var manualHtml=notes?avFormatNotes(avStripSupplierValues(notes)):'<div style="color:var(--sub);">—</div>';
+  // avAutoLog entries are different: they are ONLY ever written by the Next-Action email-sync
+  // scheduled task (trig_01DHK3z3fQerrA6gMgrxxdTy), which is hard-coded to search Gmail with a
+  // query that requires an @avantgarde-tiling.com participant on the message (to/cc/from) before
+  // it will ever turn a thread into an entry - see that trigger's "Critical privacy rule for
+  // Avantgarde" step. So by construction, anything that lands here was already sent to, copied
+  // to, or received from someone at Avantgarde in their own inbox - stripping it again achieves
+  // nothing except hiding information from them that they already have. Per Michele, 2026-08-07:
+  // "the manager should be able to see notes that belong to them (when avantgarde is in copy,
+  // writes, or receive an email)". Kept a source guard (only skip stripping when source is
+  // exactly 'email-sync', the one path with that domain guarantee) so any future entry written
+  // a different way still gets the safe default.
   var autoHtml=autoLog.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+autoLog.map(function(e){
-    return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+avStripSupplierValues(e.text||'')+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
+    var _txt=(e.source==='email-sync')?(e.text||''):avStripSupplierValues(e.text||'');
+    return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+_txt+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
   }).join('')+'</ul></div>'):'';
   return '<div style="margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:12px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Instructions</div><div style="font-size:13px;color:var(--dark);line-height:1.5;">'+manualHtml+'</div>'+autoHtml+'</div>';
 }
@@ -6747,7 +6757,13 @@ function renderInstallerLogin(root){
   const names=avInstallers.length
     ? avInstallers.map(i=>`<button class="inst-login-btn" onclick="installerLogin('${i.name.replace(/'/g,"\\'")}')"><div class="inst-login-name">👷 ${i.name}</div><div class="inst-login-spec">${i.spec||'Installer'}</div></button>`).join('')
     : '<div style="font-size:14px;color:var(--sub);text-align:center;padding:20px;">No installers registered yet.<br>Ask management to add you.</div>';
+  // Added 2026-08-07: this preview screen had no way back out of it at all - on a device with
+  // no bottom-nav bar (either the deliberate installer-mode kiosk lock, or any device on the
+  // "Avantgarde only" restricted access tier, which also hides it - see body.av-restricted-mode
+  // CSS above), there was no route back to the rest of the app whatsoever. This button sits
+  // inline in the screen's own content, so it works regardless of what's hiding the nav bar.
   root.innerHTML=`
+    <div style="padding:14px 16px 0;"><button onclick="nav('brand-av')" style="background:none;border:none;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;padding:0;">← Back to Avantgarde</button></div>
     <div class="installer-header" style="padding-bottom:28px;">
       <img class="installer-logo" src="${AV_LOGO}" alt="Avantgarde">
       <div class="installer-title">Avantgarde Installer Portal</div>
