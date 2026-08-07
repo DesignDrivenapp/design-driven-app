@@ -544,7 +544,9 @@ function _unlock(){
   if(localStorage.getItem(_LKEY)==='avantgarde'){
     // Approved for Avantgarde only — never show Grassi/Friul/Agape/DD-overview or the
     // cross-brand bottom nav (Projects/Brands/Briefing/Settings). See nav() guard below.
-    document.body.classList.add('av-restricted-mode');
+    // (avSyncRestrictedModeClass, defined later in this file, is a function declaration so
+    // it's hoisted and safe to call from here.)
+    try{ avSyncRestrictedModeClass(); }catch(e){ document.body.classList.add('av-restricted-mode'); }
     setTimeout(function(){ try{ nav('brand-av'); }catch(e){} }, 50);
   }
   try{updateStats();}catch(e){}
@@ -5835,7 +5837,12 @@ function editAvJob(id){
   document.getElementById('avj-installer-notes').value=j.installerInstructions||'';
   document.getElementById('avj-progress').value=j.progress||0;
   document.getElementById('avj-prog-val').textContent=(j.progress||0)+'%';
-  document.getElementById('avj-delete-btn').style.display='block';
+  // 2026-08-07: only the owner sees the Delete button at all - a manager could previously see
+  // and click it, which (see deleteAvJob below) removed the project from THEIR device's local
+  // list immediately, before the Firestore rules (owner-only delete) ever got a chance to
+  // reject the server-side write - so it looked to Michele like a manager had deleted the whole
+  // project, even though Firestore itself never actually allowed it.
+  document.getElementById('avj-delete-btn').style.display=(avCurrentUser&&avCurrentUser.role==='owner')?'block':'none';
   const sl=document.getElementById('avj-linked');if(sl){sl.dataset.sel=j.linkedProjectId||'';populateLinkedDrop(sl);}
   renderAvjInstList();renderAvjDocs();document.getElementById('avJobModal').classList.add('open');
 }
@@ -5902,6 +5909,13 @@ function saveAvJob(){
 // Now also deletes the Firestore doc and clears linkedAvJobId on the source project, so
 // "+ Add to Avantgarde" reappears there and a fresh job can be created cleanly.
 function deleteAvJob(){
+  // 2026-08-07: re-check role here too, not just by hiding the button in editAvJob - the
+  // button hide is a UI nicety, this is the actual guard. Matches the pattern already used in
+  // avDeleteAutoLogEntry. Firestore's own rule (allow delete: if isOwner()) was already correct
+  // and would have rejected a manager's delete server-side, but the LOCAL splice+save below
+  // used to run unconditionally first, so the project vanished from that manager's own device
+  // immediately regardless of what Firestore then did with the request.
+  if(!avCurrentUser||avCurrentUser.role!=='owner'){ showToast('Only the owner can delete projects'); return; }
   if(!currentAvJobId||!confirm('Delete?'))return;
   var _delId=currentAvJobId;
   avJobs=avJobs.filter(j=>j.id!==_delId);
@@ -6205,7 +6219,17 @@ function avAttachJobLiveListeners(jobId){
   avjvmUnsubJob = avDb.collection('avJobs').doc(jobId).onSnapshot(function(doc){
     avjvmDocsLoaded = true;
     avApplyJobDocSnapshot(jobId, doc, false);
-  }, function(e){ avjvmDocsLoaded = true; console.error('AV job live read failed', e); avShowJobLiveError(jobId, 'Could not load documents'); });
+  }, function(e){
+    avjvmDocsLoaded = true;
+    console.error('AV job live read failed', e);
+    // 2026-08-07: surface the real Firestore error code/message rather than a fixed string -
+    // 'permission-denied' here (as opposed to a network-level failure) would point at the
+    // signed-in account's Firestore users/{uid} doc, e.g. a missing/false `active` field, not
+    // at connectivity. See the matching change in the installer feed handler below for why
+    // this matters.
+    var _emsg=(e&&(e.message||e.code))?String(e.message||e.code):'';
+    avShowJobLiveError(jobId, 'Could not load documents'+(_emsg?' — '+_emsg:''));
+  });
   avjvmUnsubFeed = avDb.collection('avJobs').doc(jobId).collection('feed').orderBy('date','desc').onSnapshot(function(snap){
     avjvmFeedLoaded = true;
     var items=[]; snap.forEach(function(d){ items.push(Object.assign({id:d.id}, d.data())); });
@@ -6215,8 +6239,11 @@ function avAttachJobLiveListeners(jobId){
     console.error('AV feed live read failed', e);
     // Previously silent — Photos/Activity would be stuck on "Loading…" forever with no
     // indication anything went wrong. Mirrors the same fallback added for the installer portal.
-    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;">Could not load — check connection</div>';
-    var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;">Could not load — check connection</div>';
+    // Also now shows the real error (see docs handler above and the installer feed handler
+    // below) instead of a fixed "check connection" string that hides the actual cause.
+    var _emsg2=(e&&(e.message||e.code))?String(e.message||e.code):'';
+    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;word-break:break-word;">Could not load'+(_emsg2?' — '+_emsg2:' — check connection')+'</div>';
+    var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg2?' — '+_emsg2:' — check connection')+'</div>';
   });
   // Safety net: on a slow/stalled connection Firestore's listener can sit silently pending —
   // no success, no error — rather than fail fast. Without this, "Loading…" can sit on screen
@@ -6446,9 +6473,11 @@ function avAttachInstallerJobListeners(jobId){
     instDocsLoaded = true;
     console.error('AV installer job doc read failed', e);
     // Previously silent — left Documents/Snags stuck on "Loading…" forever with no indication
-    // anything went wrong (same class of bug already fixed for the feed below).
-    var dEl=document.getElementById('avjvm-docs-'+jobId); if(dEl) dEl.innerHTML='<div style="padding:12px 0;font-size:13px;color:#C62828;">Could not load — check connection</div>';
-    var sEl=document.getElementById('avjvm-snags-'+jobId); if(sEl) sEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;">Could not load — check connection</div>';
+    // anything went wrong (same class of bug already fixed for the feed below). Now also shows
+    // the real Firestore error code/message instead of a fixed string.
+    var _emsg3=(e&&(e.message||e.code))?String(e.message||e.code):'';
+    var dEl=document.getElementById('avjvm-docs-'+jobId); if(dEl) dEl.innerHTML='<div style="padding:12px 0;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg3?' — '+_emsg3:' — check connection')+'</div>';
+    var sEl=document.getElementById('avjvm-snags-'+jobId); if(sEl) sEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg3?' — '+_emsg3:' — check connection')+'</div>';
   });
   // Installers can only ever see visibility:'shared' feed items per the Firestore rule
   // (isInstaller() && ... && resource.data.visibility=='shared'). That rule depends on
@@ -6465,8 +6494,16 @@ function avAttachInstallerJobListeners(jobId){
   }, function(e){
     instFeedLoaded = true;
     console.error('AV installer feed read failed', e);
-    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;">Could not load — check connection</div>';
-    var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;">Could not load — check connection</div>';
+    // 2026-08-07: show the real Firestore error code/message instead of a generic "check
+    // connection" line - that generic text was hiding a likely real cause (a missing
+    // composite index: this query combines an equality filter on visibility with an orderBy
+    // on a different field, date, which Firestore usually can't serve from automatic
+    // single-field indexes alone - it needs one created once in the Firebase console, and the
+    // SDK's own error message normally includes a direct link to create it). If this is what's
+    // happening, e.code will read 'failed-precondition' rather than 'permission-denied'.
+    var _emsg=(e&&(e.message||e.code))?String(e.message||e.code):'';
+    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;word-break:break-word;">Could not load'+(_emsg?' — '+_emsg:' — check connection')+'</div>';
+    var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg?' — '+_emsg:' — check connection')+'</div>';
   });
   avInstJobUnsubs[jobId] = {job:jobUnsub, feed:feedUnsub};
   // Safety net: a slow/stalled connection can leave Firestore's listener silently pending —
@@ -6490,16 +6527,20 @@ function instUpdateProgLive(jobId, val, span){
 }
 function avInstallerLiveLogout(){
   avDetachInstallerPortal();
-  if(avAuth) avAuth.signOut().then(function(){ avCurrentUser=null; nav('home'); }).catch(function(e){ console.error('AV sign out failed', e); nav('home'); });
-  else { avCurrentUser=null; nav('home'); }
+  if(avAuth) avAuth.signOut().then(function(){ avCurrentUser=null; avSyncRestrictedModeClass(); nav('home'); }).catch(function(e){ console.error('AV sign out failed', e); avCurrentUser=null; avSyncRestrictedModeClass(); nav('home'); });
+  else { avCurrentUser=null; avSyncRestrictedModeClass(); nav('home'); }
 }
 // Lets an owner/manager already approved on this device sign out of their own Team Access
 // account and sign back in as someone else (e.g. an installer) to see exactly what that
 // person sees — without repeating the device-approval flow, since the device itself
-// already has full access; only the Team Access identity changes.
+// already has full access; only the Team Access identity changes. Note this is exactly the
+// path that surfaced the 2026-08-07 nav-lockdown gap: signing back in as an installer here
+// used to leave the full app reachable on a full-access device - fixed via
+// avIsAccessRestricted() now also checking avCurrentUser.role, synced below and in
+// onAuthStateChanged.
 function avOwnerSignOut(){
-  if(avAuth) avAuth.signOut().then(function(){ avCurrentUser=null; nav('brand-av'); }).catch(function(e){ console.error('AV owner sign out failed', e); avCurrentUser=null; nav('brand-av'); });
-  else { avCurrentUser=null; nav('brand-av'); }
+  if(avAuth) avAuth.signOut().then(function(){ avCurrentUser=null; avSyncRestrictedModeClass(); nav('brand-av'); }).catch(function(e){ console.error('AV owner sign out failed', e); avCurrentUser=null; avSyncRestrictedModeClass(); nav('brand-av'); });
+  else { avCurrentUser=null; avSyncRestrictedModeClass(); nav('brand-av'); }
 }
 
 function renderAvJobFeed(jobId, items){
@@ -7077,15 +7118,27 @@ function avSyncJobsFromFirestore(){
 }
 if (avAuth) {
   avAuth.onAuthStateChanged(function(user){
-    if (!user) { avCurrentUser = null; return; }
+    // Every branch below re-syncs the restricted-mode body class immediately after touching
+    // avCurrentUser, so a manager/installer signing in on an otherwise full-access device is
+    // locked to Avantgarde screens the instant their role is known - not just on devices that
+    // were themselves approved as Avantgarde-only. See avIsAccessRestricted() above.
+    if (!user) { avCurrentUser = null; avSyncRestrictedModeClass(); return; }
     avDb.collection('users').doc(user.uid).get().then(function(doc){
-      if (!doc.exists) { avCurrentUser = null; return; }
+      if (!doc.exists) { avCurrentUser = null; avSyncRestrictedModeClass(); return; }
       var d = doc.data();
-      if (d.active === false) { avAuth.signOut(); avCurrentUser = null; return; }
+      if (d.active === false) { avAuth.signOut(); avCurrentUser = null; avSyncRestrictedModeClass(); return; }
       avCurrentUser = { uid: user.uid, name: d.name, role: (d.role||'').toString().trim().toLowerCase(), company: d.company || '' };
+      avSyncRestrictedModeClass();
       if (avCurrentUser.role==='owner'||avCurrentUser.role==='manager') { try{ avSyncJobsFromFirestore(); }catch(e){console.error('AV jobs sync trigger failed',e);} }
+      // If the screen currently on display is no longer allowed for this identity (e.g. we were
+      // sitting on a full-app page and just became restricted), bounce to brand-av now rather
+      // than waiting for the next manual nav() call.
+      if (avIsAccessRestricted()) {
+        var _activeScreen = document.querySelector('.screen.active');
+        if (_activeScreen && !avIsNavAllowed(_activeScreen.id)) { try{ nav('brand-av'); }catch(e){} }
+      }
       if (avPendingNav) { var t = avPendingNav; avPendingNav = null; nav(t); }
-    }).catch(function(e){ console.error('AV user doc read failed', e); avCurrentUser = null; });
+    }).catch(function(e){ console.error('AV user doc read failed', e); avCurrentUser = null; avSyncRestrictedModeClass(); });
   });
 }
 
@@ -7235,10 +7288,33 @@ function avRenderTeamAdmin(){
 // beyond this outer gate. This allowlist is deliberately an ALLOWLIST, not a blocklist,
 // so a screen added later is safe-by-default rather than accidentally exposed.
 var AV_RESTRICTED_ALLOWED_SCREENS = ['home','brand-av','av-team-login','av-team-admin','av-access-requests','av-jobs','av-installers','av-calc','av-installer-view','av-installer-live'];
-function avIsAccessRestricted(){ return localStorage.getItem('dd_access_level')==='avantgarde'; }
+// 2026-08-07: this used to check ONLY the device's own approval tier - fine for a device that
+// was never approved for more than Avantgarde, but wrong the moment a manager or installer
+// Team Access account signs in on a device that DOES have full access (e.g. Michele's own
+// devices, all grandfathered with full access from before this approval system existed).
+// Michele found this testing the "sign in as someone else" feature: on his own full-access
+// device, switching Team Access identity to a manager/installer still left the whole app -
+// Grassi/Friul/Agape/Home, all of Design Driven's commercial data - reachable, because the
+// device-level check alone said "not restricted". A manager or installer account must never
+// see that data, regardless of which device they happen to be signed in on.
+function avIsAccessRestricted(){
+  if(localStorage.getItem('dd_access_level')==='avantgarde') return true;
+  if(avCurrentUser && (avCurrentUser.role==='manager'||avCurrentUser.role==='installer')) return true;
+  return false;
+}
 function avIsNavAllowed(id){
   if(!avIsAccessRestricted()) return true;
   return AV_RESTRICTED_ALLOWED_SCREENS.indexOf(id)!==-1;
+}
+// Keeps the body class (which hides the bottom nav bar and its Grassi/Friul/Agape/DD-overview
+// buttons via CSS - see .av-restricted-mode rules near the top of this file) in step with
+// avIsAccessRestricted(), which can now change at runtime (Team Access sign-in/out), not just
+// once at device unlock. Call this any time avCurrentUser changes. Safe to call repeatedly.
+function avSyncRestrictedModeClass(){
+  try{
+    if(avIsAccessRestricted()) document.body.classList.add('av-restricted-mode');
+    else document.body.classList.remove('av-restricted-mode');
+  }catch(e){}
 }
 function avRefreshAccessReqBanner(){
   var banner=document.getElementById('avAccessReqBanner'); if(!banner||!avDb) return;
