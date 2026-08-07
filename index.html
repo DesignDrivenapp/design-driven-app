@@ -4233,21 +4233,40 @@ function addProjectToAvantgarde(id){
 // amounts still present in Next Action/Notes text even though those fields default to
 // unticked. Any line carrying a money amount or a clear commercial marker (invoice, proforma,
 // order value, VAT, saldo, balance due, quote, PO number, cash-flow, payment terms) is replaced
-// with a placeholder UNLESS the same line also references Avantgarde's OWN commercial detail
-// (day rate, installation/labour cost, crew rate, or the word "Avantgarde" itself) - those are
-// Avantgarde's own figures, already known to them, and Michele asked for those to stay. This
-// only cleans what's shown in this review box; it never touches the underlying Grassi/Friul
-// project data, and a field still has to be explicitly ticked before anything is saved or sent.
-var AV_MONEY_RE=/(?:£|€|\$|\bEUR\b|\bGBP\b|\bUSD\b)\s?\d[\d,]*(?:\.\d{1,2})?/i;
-var AV_SUPPLIER_MARKER_RE=/\b(invoice|proforma|order value|quote|quotation|saldo|balance due|advance payment|cash-?flow|VAT|PO\s?#?\d|payment terms|outstanding)\b/i;
-var AV_KEEP_SIGNAL_RE=/\bavantgarde\b|installation rate|install(?:ation)? cost|day rate|labour cost|crew rate|installer rate/i;
+// with a placeholder UNLESS that specific figure sits right next to Avantgarde's OWN commercial
+// detail (day rate, installation/labour cost, crew rate) - those are Avantgarde's own figures,
+// already known to them, and Michele asked for those to stay.
+//
+// REVISED 2026-08-07: the original version flagged/kept a whole LINE at a time, and treated any
+// mention of the word "Avantgarde" anywhere in that line as a reason to keep the whole thing.
+// That broke on real email-log entries, which are long narrative sentences that often mention
+// Avantgarde as a party in the conversation ("Kieran (Avantgarde) is on annual leave...") in the
+// very same sentence as a genuine Grassi/Friul invoice figure - the "Avantgarde" mention was
+// protecting numbers it had nothing to do with. Now each money amount and invoice/PO/order
+// reference is redacted individually, and "keep" only applies if an Avantgarde-cost phrase
+// (day rate/installation cost/labour cost/crew rate) appears within a short window immediately
+// around that specific figure - not anywhere else in the same paragraph. A handful of narrative
+// marker words with no attached figure (payment terms, cash-flow, outstanding, etc.) still blank
+// the whole line, same as before, using the same narrow proximity check.
+var AV_MONEY_RE=/(?:£|€|\$|\bEUR\b|\bGBP\b|\bUSD\b)\s?\d[\d,]*(?:\.\d{1,2})?/gi;
+var AV_INVOICE_REF_RE=/\b(?:invoice|proforma|order(?:\s+ref(?:erence)?)?|PO)\s*#?\s*\d[\d\/\-]*\b/gi;
+var AV_MARKER_ONLY_RE=/\b(saldo|balance due|advance payment|cash-?flow|VAT|payment terms|outstanding|order value|quotation|quote)\b/i;
+var AV_KEEP_SIGNAL_RE=/installation rate|install(?:ation)? cost|day rate|labour cost|crew rate|installer rate/i;
+var AV_KEEP_WINDOW=45;
+function _avLocalKeepOk(str,idx,len){
+  var start=Math.max(0,idx-AV_KEEP_WINDOW), end=Math.min(str.length,idx+len+AV_KEEP_WINDOW);
+  return AV_KEEP_SIGNAL_RE.test(str.slice(start,end));
+}
 function avStripSupplierValues(text){
   if(!text) return text;
   return text.split('\n').map(function(line){
-    var flagged=AV_MONEY_RE.test(line)||AV_SUPPLIER_MARKER_RE.test(line);
-    if(!flagged) return line;
-    if(AV_KEEP_SIGNAL_RE.test(line)) return line;
-    return '[Grassi/Friul commercial detail removed - review before ticking]';
+    var out=line.replace(AV_MONEY_RE,function(m,idx){ return _avLocalKeepOk(line,idx,m.length)?m:'[amount removed]'; });
+    out=out.replace(AV_INVOICE_REF_RE,function(m,idx){ return _avLocalKeepOk(out,idx,m.length)?m:'[reference removed]'; });
+    var mm=out.match(AV_MARKER_ONLY_RE);
+    if(mm&&!_avLocalKeepOk(out,mm.index,mm[0].length)){
+      return '[Grassi/Friul commercial detail removed]';
+    }
+    return out;
   }).join('\n');
 }
 var AV_ADD_REVIEW_FIELDS=[['desc','Description'],['nextAction','Next Action'],['notes','Notes'],['materialNotes','Material Notes']];
