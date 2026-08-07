@@ -5710,7 +5710,7 @@ function renderAvJobs(list){
     const photos=getAvPhotos(j.id).length;
     const docs=j.docs||{},docCount=Object.values(docs).filter(Boolean).length;
     const instNames=(j.installers||[]).map(i=>i.name).join(', ');
-    const notesPreview=(j.notes||'').replace(/\s+/g,' ').trim();
+    const notesPreview=avStripSupplierValues((j.notes||'')).replace(/\s+/g,' ').trim();
     const notesPreviewShort=notesPreview.length>90?notesPreview.slice(0,90)+'…':notesPreview;
     return `<div class="av-job-card" onclick="viewAvJob('${j.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -5749,7 +5749,12 @@ function avWhatsApp(id){
   if(docs.drawings)sent.push('Drawings');if(docs.cuttingList)sent.push('Cutting List');
   if(docs.packingList)sent.push('Packing List');if(docs.installNotes)sent.push('Install Notes');
   if(sent.length){lines.push('');lines.push('*Documents sent:* '+sent.join(', '));}
-  if(j.notes){lines.push('');lines.push('*Instructions:*');lines.push(j.notes);}
+  // This brief goes straight out over WhatsApp, typically to the installer team, so it needs the
+  // same two safeguards as the in-app Instructions block: (1) strip any Grassi/Friul commercial
+  // detail (belt-and-suspenders alongside saveAvJob, in case older/unsaved notes still carry it),
+  // and (2) only include Notes at all if this job's "Visible to installers" toggle is on - notes
+  // withheld from the in-app installer view shouldn't leak out a side door via WhatsApp instead.
+  if(j.notes && j.notesVisibleToInstallers===true){lines.push('');lines.push('*Instructions:*');lines.push(avStripSupplierValues(j.notes));}
   // No job-specific link is included here any more (see SECURITY FIX 2026-07-27 below) —
   // it used to append '#av-job-{id}', which bypassed the lock screen entirely for anyone
   // holding the link. Team members with an account should sign in from the plain app link
@@ -6201,9 +6206,14 @@ function avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller){
   }
   if(!notes&&!autoLog.length) return '';
   var isOwner=avCurrentUser&&avCurrentUser.role==='owner';
-  var manualHtml=notes?avFormatNotes(notes):'<div style="color:var(--sub);">—</div>';
+  // Belt-and-suspenders: notes/autoLog are also stripped where they're written (saveAvJob, the
+  // Add-to-Avantgarde review step), but avAutoLog entries are written directly to Firestore by
+  // the email-sync automation and never pass through that code, and older jobs may still carry
+  // raw text saved before the strip existed. Stripping again here, at render time, means every
+  // Avantgarde-facing view is safe regardless of how or when the underlying text got in.
+  var manualHtml=notes?avFormatNotes(avStripSupplierValues(notes)):'<div style="color:var(--sub);">—</div>';
   var autoHtml=autoLog.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+autoLog.map(function(e){
-    return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+(e.text||'')+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
+    return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+avStripSupplierValues(e.text||'')+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
   }).join('')+'</ul></div>'):'';
   return '<div style="margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:12px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Instructions</div><div style="font-size:13px;color:var(--dark);line-height:1.5;">'+manualHtml+'</div>'+autoHtml+'</div>';
 }
