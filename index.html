@@ -2180,7 +2180,7 @@ async function ppFaceId(){
     </div>
     <div class="form-section-head">Progress</div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><input type="range" id="avj-progress" min="0" max="100" step="5" value="0" oninput="document.getElementById('avj-prog-val').textContent=this.value+'%'" style="flex:1;accent-color:var(--av);"><span id="avj-prog-val" style="font-size:18px;font-weight:700;color:var(--av);min-width:44px;">0%</span></div>
-    <div class="fg"><label class="fl">Notes / Instructions</label><textarea class="ft" id="avj-notes" placeholder="Site access, scope details…"></textarea><label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--sub);"><input type="checkbox" id="avj-notes-visible" style="width:16px;height:16px;">Visible to installers <span style="font-weight:400;">(off by default - managers/owner only until you tick this)</span></label><div style="font-size:11px;color:var(--sub);margin-top:4px;">Grassi/Friul pricing, invoices and payment details are auto-removed when you save.</div></div>
+    <div class="fg"><label class="fl">Notes / Instructions</label><textarea class="ft" id="avj-notes" placeholder="Site access, scope details…"></textarea><div id="avj-notes-caption" style="font-size:11px;color:var(--sub);margin-top:4px;">Never shown to installers. Grassi/Friul pricing, invoices and payment details are auto-removed when you save.</div></div>
     <button class="btn-p" onclick="saveAvJob()">Save Project</button>
     <button class="btn-d" id="avj-delete-btn" onclick="deleteAvJob()" style="display:none;">Delete</button>
   </div></div>
@@ -5772,12 +5772,10 @@ function avWhatsApp(id){
   if(docs.drawings)sent.push('Drawings');if(docs.cuttingList)sent.push('Cutting List');
   if(docs.packingList)sent.push('Packing List');if(docs.installNotes)sent.push('Install Notes');
   if(sent.length){lines.push('');lines.push('*Documents sent:* '+sent.join(', '));}
-  // This brief goes straight out over WhatsApp, typically to the installer team, so it needs the
-  // same two safeguards as the in-app Instructions block: (1) strip any Grassi/Friul commercial
-  // detail (belt-and-suspenders alongside saveAvJob, in case older/unsaved notes still carry it),
-  // and (2) only include Notes at all if this job's "Visible to installers" toggle is on - notes
-  // withheld from the in-app installer view shouldn't leak out a side door via WhatsApp instead.
-  if(j.notes && j.notesVisibleToInstallers===true){lines.push('');lines.push('*Instructions:*');lines.push(avStripSupplierValues(j.notes));}
+  // Notes/Instructions are deliberately never included in this brief - 2026-08-07, at Michele's
+  // request, Notes was removed from the installer-facing view entirely (it originates from
+  // Grassi/Friul project text and the risk of a redaction gap wasn't worth it), and this brief
+  // goes straight out over WhatsApp, typically to the installer team, so it needs to match.
   // No job-specific link is included here any more (see SECURITY FIX 2026-07-27 below) —
   // it used to append '#av-job-{id}', which bypassed the lock screen entirely for anyone
   // holding the link. Team members with an account should sign in from the plain app link
@@ -5798,7 +5796,10 @@ function openNewAvJob(){
   document.getElementById('avj-start').value='';document.getElementById('avj-end').value='';
   document.getElementById('avj-progress').value=0;document.getElementById('avj-prog-val').textContent='0%';
   document.getElementById('avj-delete-btn').style.display='none';
-  var _nv=document.getElementById('avj-notes-visible'); if(_nv) _nv.checked=false;
+  // A brand-new job's notes are whatever this user is about to type themselves, not anything
+  // pulled from a supplier project, so there's nothing to protect them from here - always
+  // editable, regardless of role (unlike editAvJob below, which locks this down for managers).
+  var _ntNew=document.getElementById('avj-notes'); if(_ntNew) _ntNew.readOnly=false;
   const sl=document.getElementById('avj-linked');if(sl){populateLinkedDrop(sl);}
   renderAvjInstList();renderAvjDocs();document.getElementById('avJobModal').classList.add('open');
 }
@@ -5811,8 +5812,17 @@ function editAvJob(id){
   document.getElementById('avj-brand').value=j.brand||'Grassi Pietre';document.getElementById('avj-status').value=j.status||'Upcoming';
   document.getElementById('avj-client').value=j.client||'';document.getElementById('avj-location').value=j.location||'';
   document.getElementById('avj-start').value=j.startDate||'';document.getElementById('avj-end').value=j.endDate||'';
-  document.getElementById('avj-notes').value=j.notes||'';document.getElementById('avj-progress').value=j.progress||0;
-  var _nv2=document.getElementById('avj-notes-visible'); if(_nv2) _nv2.checked=(j.notesVisibleToInstallers===true);
+  // Only the owner sees/edits the raw Notes text. A manager gets the same stripped preview
+  // shown everywhere else in the app, and the field is locked read-only so a routine edit
+  // (e.g. just bumping progress) can never silently overwrite the real notes with the
+  // stripped placeholder text - see the matching guard in saveAvJob() below.
+  var _isOwnerEdit=avCurrentUser&&avCurrentUser.role==='owner';
+  var _nt=document.getElementById('avj-notes');
+  _nt.value=_isOwnerEdit?(j.notes||''):avStripSupplierValues(j.notes||'');
+  _nt.readOnly=!_isOwnerEdit;
+  var _ntCap=document.getElementById('avj-notes-caption');
+  if(_ntCap) _ntCap.textContent=_isOwnerEdit?'Never shown to installers. Grassi/Friul pricing, invoices and payment details are auto-removed when you save.':'Never shown to installers. Shown here with Grassi/Friul commercial detail already removed — only the owner can edit the underlying text.';
+  document.getElementById('avj-progress').value=j.progress||0;
   document.getElementById('avj-prog-val').textContent=(j.progress||0)+'%';
   document.getElementById('avj-delete-btn').style.display='block';
   const sl=document.getElementById('avj-linked');if(sl){sl.dataset.sel=j.linkedProjectId||'';populateLinkedDrop(sl);}
@@ -5852,7 +5862,17 @@ function renderAvjDocs(){['drawings','cuttingList','packingList','installNotes']
 function saveAvJob(){
   const name=document.getElementById('avj-name').value.trim();if(!name){showToast('Please enter a name');return;}
   const sl=document.getElementById('avj-linked');
-  const j={id:currentAvJobId||('av-'+Date.now()),name,brand:document.getElementById('avj-brand').value,status:document.getElementById('avj-status').value,client:document.getElementById('avj-client').value.trim(),location:document.getElementById('avj-location').value.trim(),startDate:document.getElementById('avj-start').value,endDate:document.getElementById('avj-end').value,notes:avStripSupplierValues(document.getElementById('avj-notes').value.trim()),notesVisibleToInstallers:document.getElementById('avj-notes-visible')?document.getElementById('avj-notes-visible').checked:false,installers:avjTempInst,docs:Object.assign({},avjTempDocs),progress:parseInt(document.getElementById('avj-progress').value)||0,feed:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).feed||[]:[], stages:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).stages||[]:[],snags:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).snags||[]:[],dailyLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).dailyLog||[]:[],variations:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).variations||[]:[],avAutoLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).avAutoLog||[]:[],linkedProjectId:sl?sl.value:'',updated:new Date().toISOString()};
+  const _existingAvJ=currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}):null;
+  // Belt-and-suspenders to match editAvJob()'s read-only lock: a manager only ever sees a
+  // stripped PREVIEW of an existing job's notes, never the real text, so their save must never
+  // write that preview back over the real thing - existing notes pass through completely
+  // untouched for a manager. A brand-new job has no prior notes to protect, so whatever's
+  // typed (by anyone, since the field is editable there) is saved as usual.
+  const _isOwnerSave=avCurrentUser&&avCurrentUser.role==='owner';
+  const _notesToSave=(_isOwnerSave||!currentAvJobId)
+    ? avStripSupplierValues(document.getElementById('avj-notes').value.trim())
+    : (_existingAvJ&&_existingAvJ.notes)||'';
+  const j={id:currentAvJobId||('av-'+Date.now()),name,brand:document.getElementById('avj-brand').value,status:document.getElementById('avj-status').value,client:document.getElementById('avj-client').value.trim(),location:document.getElementById('avj-location').value.trim(),startDate:document.getElementById('avj-start').value,endDate:document.getElementById('avj-end').value,notes:_notesToSave,installers:avjTempInst,docs:Object.assign({},avjTempDocs),progress:parseInt(document.getElementById('avj-progress').value)||0,feed:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).feed||[]:[], stages:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).stages||[]:[],snags:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).snags||[]:[],dailyLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).dailyLog||[]:[],variations:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).variations||[]:[],avAutoLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).avAutoLog||[]:[],linkedProjectId:sl?sl.value:'',updated:new Date().toISOString()};
   if(currentAvJobId){const i=avJobs.findIndex(x=>x.id===currentAvJobId);if(i>=0)avJobs[i]=j;else avJobs.unshift(j);}else avJobs.unshift(j);
   saveAvJobs();avSyncJobToFirestore(j);closeModal('avJobModal');filterAvJobs('all',document.querySelector('#avJobFilterRow .chip'));showToast('Saved ✓');
   avSendPushNotification('✏️ Job updated', (avCurrentUser?avCurrentUser.name:'Someone')+' updated '+(j.name||'a job'));
@@ -6202,7 +6222,10 @@ function avApplyJobDocSnapshot(jobId, doc, docsReadOnly){
   var data = doc.exists ? doc.data() : {};
   renderAvJobDocs(jobId, data.docs||{}, docsReadOnly);
   renderAvJobSnagsLive(jobId, data.snags||{});
-  renderAvJobNotes(jobId, data.notes||'', data.avAutoLog||[], !!(docsReadOnly&&data.notesVisibleToInstallers!==true));
+  // renderAvJobNotes() is a no-op here when called for an installer (docsReadOnly), since the
+  // installer job card no longer has a notes-wrap container to render into at all - Notes is
+  // never shown to installers, full stop, not just conditionally hidden.
+  renderAvJobNotes(jobId, data.notes||'', data.avAutoLog||[]);
   // Keep the local copy in step with the live Notes/auto-log — added 2026-08-02 alongside the
   // Add-to-Avantgarde review step and the email-sync groundwork below, so any device (including
   // Michele's own, via Switch Account) reflects what a manager would actually see, and so
@@ -6352,7 +6375,9 @@ function avRenderInstallerJobCards(jobs){
     return '<div class="inst-job-card">'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;"><div style="font-size:16px;font-weight:700;color:var(--dark);flex:1;">'+(j.name||'')+'</div><span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:#E8F0FE;color:var(--av);flex-shrink:0;margin-left:8px;">'+(j.status||'')+'</span></div>'+
       '<div style="font-size:13px;color:var(--mid);margin-bottom:10px;">'+(j.client||'')+(j.location?' · 📍 '+j.location:'')+'</div>'+
-      '<div id="avjvm-notes-wrap-'+j.id+'" style="margin-bottom:10px;"></div>'+
+      // 2026-08-07, at Michele's request: Notes/Instructions is never shown to installers at
+      // all any more (previously an opt-in toggle) - no notes-wrap container here means
+      // renderAvJobNotes() below is always a safe no-op for this card, by construction.
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Progress</span><span id="ipval-'+j.id+'" style="font-size:14px;font-weight:700;color:var(--av);">'+(j.progress||0)+'%</span></div>'+
       '<div class="av-prog-bar" style="margin-bottom:6px;"><div class="av-prog-fill" style="width:'+(j.progress||0)+'%"></div></div>'+
       '<input type="range" min="0" max="100" step="5" value="'+(j.progress||0)+'" oninput="instUpdateProgLive(\''+j.id+'\',parseInt(this.value),document.getElementById(\'ipval-'+j.id+'\'))" style="width:100%;accent-color:var(--av);margin-bottom:14px;">'+
