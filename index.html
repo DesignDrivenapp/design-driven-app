@@ -5706,7 +5706,11 @@ function renderAvJobs(list){
   const sc={Upcoming:'#E8F0FE','In Progress':'#E8F5E9','On Hold':'#FFF8E1',Complete:'#F5F5F5'};
   const tc={Upcoming:'#1B2F8A','In Progress':'#2E7D32','On Hold':'#E65100',Complete:'#555'};
   el.innerHTML=list.map(j=>{
-    const probs=(j.snags||[]).filter(s=>s.status!=='Resolved').length;
+    // Defensive: snags should always be an array on the local model, but guard against a
+    // stray map/object slipping through (e.g. a future sync path) so one malformed job
+    // can't throw mid-loop and blank the entire list for everyone, the way this just did.
+    const jSnags=Array.isArray(j.snags)?j.snags:Object.values(j.snags||{});
+    const probs=jSnags.filter(s=>s.status!=='Resolved').length;
     const photos=getAvPhotos(j.id).length;
     const docs=j.docs||{},docCount=Object.values(docs).filter(Boolean).length;
     const instNames=(j.installers||[]).map(i=>i.name).join(', ');
@@ -5939,7 +5943,7 @@ function viewAvJob(id){
   document.getElementById('avjvm-title').textContent=j.name;
   const dm={drawings:'📐 Drawings',cuttingList:'✂️ Cutting List',packingList:'📦 Packing List',installNotes:'📝 Install Notes'};
   const docs=j.docs||{},feed=j.feed||[],photos=getAvPhotos(j.id);
-  const snags=j.snags||[],openSnags=snags.filter(s=>s.status!=='Resolved').length;
+  const snags=Array.isArray(j.snags)?j.snags:Object.values(j.snags||{}),openSnags=snags.filter(s=>s.status!=='Resolved').length;
   const stages=j.stages||[],doneStages=stages.filter(s=>s.done).length;
   const vars=j.variations||[],varTotal=vars.filter(v=>v.status==='Approved').reduce((a,v)=>a+(parseFloat(v.costImpact)||0),0);
   const logs=j.dailyLog||[];
@@ -6945,12 +6949,19 @@ function avSyncJobsFromFirestore(){
       var id=doc.id;
       if(avJobs.some(function(j){return j.id===id;})) return;
       var d=doc.data()||{};
+      // Firestore always stores snags as a map keyed by snag id (see avSyncJobToFirestore),
+      // never as an array — the local avJobs model uses an array throughout (renderAvJobs,
+      // viewAvJob, etc. all call .filter()/.find() on j.snags directly). Copying d.snags
+      // straight across left it as an object, which crashed the very first .filter() call
+      // during rendering and silently blanked the whole Projects list for every job, not
+      // just the affected one, since that crash happens mid-loop with nothing catching it.
+      var _snagsArr = d.snags ? (Array.isArray(d.snags) ? d.snags : Object.values(d.snags)) : [];
       avJobs.unshift({
         id:id, name:d.name||d.client||id, brand:d.brand||'', status:d.status||'Upcoming',
         client:d.client||'', location:d.location||'', startDate:d.startDate||'', endDate:d.endDate||'',
         notes:d.notes||'', avAutoLog:d.avAutoLog||[],
         installers:d.installers||[], docs:d.docs||{drawings:false,cuttingList:false,packingList:false,installNotes:false},
-        progress:d.progress||0, feed:d.feed||[], stages:d.stages||[], snags:d.snags||[], dailyLog:d.dailyLog||[], variations:d.variations||[],
+        progress:d.progress||0, feed:d.feed||[], stages:d.stages||[], snags:_snagsArr, dailyLog:d.dailyLog||[], variations:d.variations||[],
         linkedProjectId:d.linkedProjectId||'', notesVisibleToInstallers:d.notesVisibleToInstallers===true, updated:d.updated||new Date().toISOString()
       });
       added++;
