@@ -2181,6 +2181,7 @@ async function ppFaceId(){
     <div class="form-section-head">Progress</div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><input type="range" id="avj-progress" min="0" max="100" step="5" value="0" oninput="document.getElementById('avj-prog-val').textContent=this.value+'%'" style="flex:1;accent-color:var(--av);"><span id="avj-prog-val" style="font-size:18px;font-weight:700;color:var(--av);min-width:44px;">0%</span></div>
     <div class="fg"><label class="fl">Notes / Instructions</label><textarea class="ft" id="avj-notes" placeholder="Site access, scope details…"></textarea><div id="avj-notes-caption" style="font-size:11px;color:var(--sub);margin-top:4px;">Never shown to installers. Grassi/Friul pricing, invoices and payment details are auto-removed when you save.</div></div>
+    <div class="fg"><label class="fl">Instructions for Installers</label><textarea class="ft" id="avj-installer-notes" placeholder="Write directly to the install team - access, scope, safety, sequencing…"></textarea><div style="font-size:11px;color:var(--sub);margin-top:4px;">Shown to installers, in the app and in the WhatsApp Brief. Separate from Notes above - write this fresh, don't paste from Grassi/Friul correspondence.</div></div>
     <button class="btn-p" onclick="saveAvJob()">Save Project</button>
     <button class="btn-d" id="avj-delete-btn" onclick="deleteAvJob()" style="display:none;">Delete</button>
   </div></div>
@@ -4260,13 +4261,18 @@ function _avLocalKeepOk(str,idx,len){
 function avStripSupplierValues(text){
   if(!text) return text;
   return text.split('\n').map(function(line){
-    var out=line.replace(AV_MONEY_RE,function(m,idx){ return _avLocalKeepOk(line,idx,m.length)?m:'[amount removed]'; });
-    out=out.replace(AV_INVOICE_REF_RE,function(m,idx){ return _avLocalKeepOk(out,idx,m.length)?m:'[reference removed]'; });
+    // 2026-08-07, at Michele's request: removed content is now left blank rather than marked
+    // with a "[...removed]" placeholder - a manager/installer shouldn't be shown a note that
+    // something was withheld, just see the sentence read cleanly without it.
+    var out=line.replace(AV_MONEY_RE,function(m,idx){ return _avLocalKeepOk(line,idx,m.length)?m:''; });
+    out=out.replace(AV_INVOICE_REF_RE,function(m,idx){ return _avLocalKeepOk(out,idx,m.length)?m:''; });
     var mm=out.match(AV_MARKER_ONLY_RE);
     if(mm&&!_avLocalKeepOk(out,mm.index,mm[0].length)){
-      return '[Grassi/Friul commercial detail removed]';
+      return '';
     }
-    return out;
+    // Tidy up whatever whitespace/punctuation a removed figure leaves behind (e.g. "on  to" or
+    // a stray " ," / " ." / " -" left dangling where a number used to sit).
+    return out.replace(/\s{2,}/g,' ').replace(/\s+([,.;:])/g,'$1').replace(/\s*[-–—]\s*(?=[,.;:]|$)/g,'').trim();
   }).join('\n');
 }
 var AV_ADD_REVIEW_FIELDS=[['desc','Description'],['nextAction','Next Action'],['notes','Notes'],['materialNotes','Material Notes']];
@@ -5772,10 +5778,12 @@ function avWhatsApp(id){
   if(docs.drawings)sent.push('Drawings');if(docs.cuttingList)sent.push('Cutting List');
   if(docs.packingList)sent.push('Packing List');if(docs.installNotes)sent.push('Install Notes');
   if(sent.length){lines.push('');lines.push('*Documents sent:* '+sent.join(', '));}
-  // Notes/Instructions are deliberately never included in this brief - 2026-08-07, at Michele's
-  // request, Notes was removed from the installer-facing view entirely (it originates from
-  // Grassi/Friul project text and the risk of a redaction gap wasn't worth it), and this brief
-  // goes straight out over WhatsApp, typically to the installer team, so it needs to match.
+  // The general Notes field (sourced from Grassi/Friul project text) is deliberately never
+  // included in this brief - 2026-08-07, at Michele's request, it was removed from the
+  // installer-facing view entirely, and this brief goes straight out over WhatsApp, typically
+  // to the installer team, so it needs to match. Instructions for Installers is a separate,
+  // always-safe field written fresh for exactly this purpose, so it's fine to include here.
+  if(j.installerInstructions)lines.push('',"*Instructions:*",j.installerInstructions);
   // No job-specific link is included here any more (see SECURITY FIX 2026-07-27 below) —
   // it used to append '#av-job-{id}', which bypassed the lock screen entirely for anyone
   // holding the link. Team members with an account should sign in from the plain app link
@@ -5791,7 +5799,7 @@ function populateLinkedDrop(sel){const projects=typeof gP==='function'?gP():[];i
 function openNewAvJob(){
   currentAvJobId=null;avjTempInst=[];avjTempDocs={drawings:false,cuttingList:false,packingList:false,installNotes:false};
   document.getElementById('avJobModalTitle').textContent='New Project';
-  ['avj-id','avj-name','avj-client','avj-location','avj-notes'].forEach(id=>document.getElementById(id).value='');
+  ['avj-id','avj-name','avj-client','avj-location','avj-notes','avj-installer-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('avj-brand').value='Grassi Pietre';document.getElementById('avj-status').value='Upcoming';
   document.getElementById('avj-start').value='';document.getElementById('avj-end').value='';
   document.getElementById('avj-progress').value=0;document.getElementById('avj-prog-val').textContent='0%';
@@ -5822,6 +5830,9 @@ function editAvJob(id){
   _nt.readOnly=!_isOwnerEdit;
   var _ntCap=document.getElementById('avj-notes-caption');
   if(_ntCap) _ntCap.textContent=_isOwnerEdit?'Never shown to installers. Grassi/Friul pricing, invoices and payment details are auto-removed when you save.':'Never shown to installers. Shown here with Grassi/Friul commercial detail already removed — only the owner can edit the underlying text.';
+  // Separate field, fully editable by owner AND manager - it's written fresh for installers,
+  // never sourced from Grassi/Friul project text, so there's nothing here to lock down.
+  document.getElementById('avj-installer-notes').value=j.installerInstructions||'';
   document.getElementById('avj-progress').value=j.progress||0;
   document.getElementById('avj-prog-val').textContent=(j.progress||0)+'%';
   document.getElementById('avj-delete-btn').style.display='block';
@@ -5832,12 +5843,20 @@ function renderAvjInstList(){
   const el=document.getElementById('avj-installers-list');
   el.innerHTML=avjTempInst.length?avjTempInst.map((i,n)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);"><div style="width:34px;height:34px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;">👷</div><div style="flex:1;"><div style="font-size:14px;font-weight:600;">${i.name}</div><div style="font-size:12px;color:var(--mid);">${i.tel||''}</div></div><button onclick="avjTempInst.splice(${n},1);renderAvjInstList()" style="background:none;border:none;color:#D32F2F;font-size:20px;cursor:pointer;">×</button></div>`).join(''):'<div style="font-size:13px;color:var(--sub);padding:4px 0 8px;">No installers assigned</div>';
 }
+// A dedicated, always-present Cancel row was added 2026-08-07 - Michele found that backing out
+// of "+ Add Installer" with no obvious way to do so ended up closing the whole Edit Project
+// form instead (losing every other unsaved edit on the way), since the only close control in
+// reach was the modal's own × button. This gives a safe way to back out of just this sub-step.
+var AVJ_INST_CANCEL_ROW='<div style="padding:8px 0;cursor:pointer;text-align:center;color:var(--sub);font-size:12px;font-weight:600;border-top:1px solid var(--line);margin-top:4px;" onclick="avjCancelInstPicker()">✕ Cancel</div>';
+function avjCancelInstPicker(){
+  const picker=document.getElementById('avj-inst-picker');if(picker)picker.style.display='none';
+}
 function avJobAddInstaller(){
   const picker=document.getElementById('avj-inst-picker');if(!picker)return;
   if(picker.style.display==='block'){picker.style.display='none';return;}
   picker.style.display='block';
   picker.innerHTML='<div style="font-size:12px;color:var(--sub);padding:8px 0;">Loading…</div>';
-  if(!avDb){picker.innerHTML='<div style="font-size:12px;color:#C62828;padding:8px 0;">Not connected — add installers via Team Access first, then try again.</div>';return;}
+  if(!avDb){picker.innerHTML='<div style="font-size:12px;color:#C62828;padding:8px 0;">Not connected — add installers via Team Access first, then try again.</div>'+AVJ_INST_CANCEL_ROW;return;}
   avDb.collection('login_directory').where('role','==','installer').where('active','==',true).get().then(function(snap){
     const already=avjTempInst.map(function(i){return i.uid;});
     const rows=[];
@@ -5846,10 +5865,10 @@ function avJobAddInstaller(){
       const d=doc.data(),safeName=(d.name||'').replace(/'/g,"\\'");
       rows.push('<div class="av-check-row" style="padding:8px 0;cursor:pointer;" onclick="avjPickInstaller(\''+doc.id+'\',\''+safeName+'\')"><span style="font-size:13px;">👷 '+(d.name||'')+'</span><span style="color:var(--accent);font-size:12px;font-weight:600;">+ Add</span></div>');
     });
-    picker.innerHTML=rows.length?rows.join(''):'<div style="font-size:12px;color:var(--sub);padding:8px 0;">No available installers — add them first via Team Access.</div>';
+    picker.innerHTML=(rows.length?rows.join(''):'<div style="font-size:12px;color:var(--sub);padding:8px 0;">No available installers — add them first via Team Access.</div>')+AVJ_INST_CANCEL_ROW;
   }).catch(function(e){
     console.error('AV installer picker load failed',e);
-    picker.innerHTML='<div style="font-size:12px;color:#C62828;padding:8px 0;">Could not load — check connection.</div>';
+    picker.innerHTML='<div style="font-size:12px;color:#C62828;padding:8px 0;">Could not load — check connection.</div>'+AVJ_INST_CANCEL_ROW;
   });
 }
 function avjPickInstaller(uid,name){
@@ -5872,7 +5891,7 @@ function saveAvJob(){
   const _notesToSave=(_isOwnerSave||!currentAvJobId)
     ? avStripSupplierValues(document.getElementById('avj-notes').value.trim())
     : (_existingAvJ&&_existingAvJ.notes)||'';
-  const j={id:currentAvJobId||('av-'+Date.now()),name,brand:document.getElementById('avj-brand').value,status:document.getElementById('avj-status').value,client:document.getElementById('avj-client').value.trim(),location:document.getElementById('avj-location').value.trim(),startDate:document.getElementById('avj-start').value,endDate:document.getElementById('avj-end').value,notes:_notesToSave,installers:avjTempInst,docs:Object.assign({},avjTempDocs),progress:parseInt(document.getElementById('avj-progress').value)||0,feed:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).feed||[]:[], stages:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).stages||[]:[],snags:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).snags||[]:[],dailyLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).dailyLog||[]:[],variations:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).variations||[]:[],avAutoLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).avAutoLog||[]:[],linkedProjectId:sl?sl.value:'',updated:new Date().toISOString()};
+  const j={id:currentAvJobId||('av-'+Date.now()),name,brand:document.getElementById('avj-brand').value,status:document.getElementById('avj-status').value,client:document.getElementById('avj-client').value.trim(),location:document.getElementById('avj-location').value.trim(),startDate:document.getElementById('avj-start').value,endDate:document.getElementById('avj-end').value,notes:_notesToSave,installerInstructions:avStripSupplierValues(document.getElementById('avj-installer-notes').value.trim()),installers:avjTempInst,docs:Object.assign({},avjTempDocs),progress:parseInt(document.getElementById('avj-progress').value)||0,feed:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).feed||[]:[], stages:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).stages||[]:[],snags:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).snags||[]:[],dailyLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).dailyLog||[]:[],variations:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).variations||[]:[],avAutoLog:currentAvJobId?(avJobs.find(x=>x.id===currentAvJobId)||{}).avAutoLog||[]:[],linkedProjectId:sl?sl.value:'',updated:new Date().toISOString()};
   if(currentAvJobId){const i=avJobs.findIndex(x=>x.id===currentAvJobId);if(i>=0)avJobs[i]=j;else avJobs.unshift(j);}else avJobs.unshift(j);
   saveAvJobs();avSyncJobToFirestore(j);closeModal('avJobModal');filterAvJobs('all',document.querySelector('#avJobFilterRow .chip'));showToast('Saved ✓');
   avSendPushNotification('✏️ Job updated', (avCurrentUser?avCurrentUser.name:'Someone')+' updated '+(j.name||'a job'));
@@ -6030,6 +6049,7 @@ function viewAvJob(id){
       <div style="margin-top:14px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Documents <span style="font-weight:400;text-transform:none;color:var(--av);">· shared live</span></div><div id="avjvm-docs-${j.id}" style="background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:0 12px;"><div style="padding:12px 0;font-size:13px;color:var(--sub);">Loading…</div></div></div>
       ${_avVisibleDocs.length&&avCurrentUser&&(avCurrentUser.role==='owner'||avCurrentUser.role==='manager')?`<div style="margin-top:14px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Supplier project documents <span style="font-weight:400;text-transform:none;">· reference only</span></div><div style="background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:0 12px;">${_avVisibleDocs.map(d=>`<div class="av-check-row"><span style="font-size:13px;">📄 ${_avDocDisplayName(d)}</span>${d.date?`<span style="font-size:11px;color:var(--sub);flex-shrink:0;margin-left:8px;">${fmtDate(d.date)}</span>`:''}</div>`).join('')}</div><div style="font-size:11px;color:var(--sub);margin-top:6px;">Names only, from the linked supplier project — commercial/pricing paperwork filtered out. Not visible to installers.</div></div>`:''}
       <div id="avjvm-notes-wrap-${j.id}">${avNotesBlockHtml(j.id,j.notes,j.avAutoLog)}</div>
+      <div id="avjvm-installer-notes-wrap-${j.id}">${avInstallerInstructionsHtml(j.installerInstructions||'')}</div>
       <div style="margin-top:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><div id="avjvm-photos-count-${j.id}" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Photos</div><label style="background:var(--accent);color:#fff;border-radius:var(--rs);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">📷 Add<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="uploadAvPhotos('${j.id}',this)"></label></div><div id="avjvm-photos-${j.id}"><div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:var(--sub);font-size:13px;">Loading…</div></div></div>
       <div style="margin-top:14px;"><div id="avjvm-activity-count-${j.id}" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Activity</div><div id="avjvm-activity-${j.id}" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:10px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>
         <div style="display:flex;gap:8px;"><input class="fi" id="avFeedIn-${j.id}" placeholder="Add a note…" style="flex:1;font-size:13px;" onkeydown="if(event.key==='Enter')addAvNoteLive('${j.id}',false)"><button onclick="addAvNoteLive('${j.id}',false)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Note</button><button onclick="addAvNoteLive('${j.id}',true)" style="background:#C62828;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;">⚠</button></div>
@@ -6116,7 +6136,7 @@ function avSyncJobToFirestore(j){
       name: j.name||'', brand: j.brand||'', client: j.client||'', location: j.location||'',
       status: j.status||'Upcoming', progress: j.progress||0, linkedProjectId: j.linkedProjectId||'',
       installerIds: installerIds, snags: snagsMap,
-      notes: j.notes||'', avAutoLog: j.avAutoLog||[], notesVisibleToInstallers: j.notesVisibleToInstallers===true,
+      notes: j.notes||'', avAutoLog: j.avAutoLog||[], installerInstructions: j.installerInstructions||'',
       updated: new Date().toISOString()
     }, {merge:true});
   }).catch(function(e){ console.error('AV job sync to Firestore failed', e); });
@@ -6226,14 +6246,15 @@ function avApplyJobDocSnapshot(jobId, doc, docsReadOnly){
   // installer job card no longer has a notes-wrap container to render into at all - Notes is
   // never shown to installers, full stop, not just conditionally hidden.
   renderAvJobNotes(jobId, data.notes||'', data.avAutoLog||[]);
+  renderAvInstallerInstructions(jobId, data.installerInstructions||'');
   // Keep the local copy in step with the live Notes/auto-log — added 2026-08-02 alongside the
   // Add-to-Avantgarde review step and the email-sync groundwork below, so any device (including
   // Michele's own, via Switch Account) reflects what a manager would actually see, and so
   // avDeleteAutoLogEntry always works off the latest array rather than a stale local one. Only
-  // these two fields are touched — Stages/Daily Log/Variations etc. are untouched, same
+  // these fields are touched — Stages/Daily Log/Variations etc. are untouched, same
   // data-safety pattern already used for the manager job-list mirror.
   var _j=avJobs.find(function(x){return x.id===jobId;});
-  if(_j){ _j.notes=data.notes!==undefined?data.notes:_j.notes; _j.avAutoLog=data.avAutoLog||_j.avAutoLog||[]; saveAvJobs(); }
+  if(_j){ _j.notes=data.notes!==undefined?data.notes:_j.notes; _j.avAutoLog=data.avAutoLog||_j.avAutoLog||[]; _j.installerInstructions=data.installerInstructions!==undefined?data.installerInstructions:_j.installerInstructions; saveAvJobs(); }
 }
 // Renders the Instructions box for a job — the manually-written Notes (unchanged formatting,
 // via avFormatNotes) plus, added 2026-08-02, a separate "Auto-added from email" section for
@@ -6266,6 +6287,19 @@ function avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller){
 function renderAvJobNotes(jobId,notes,autoLog,hideFromInstaller){
   var el=document.getElementById('avjvm-notes-wrap-'+jobId); if(!el) return;
   el.innerHTML=avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller);
+}
+// Added 2026-08-07 at Michele's request: a plain-text instructions field managers/owner write
+// fresh, specifically for installers - completely separate from Notes (which installers never
+// see), so there's no Grassi/Friul supplier content anywhere near what renders here. Still runs
+// through avStripSupplierValues on save as a belt-and-suspenders measure only, in case someone
+// pastes something they shouldn't have; this render step trusts that's already been done.
+function avInstallerInstructionsHtml(text){
+  if(!text) return '';
+  return '<div style="margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:12px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Instructions for Installers</div><div style="font-size:13px;color:var(--dark);line-height:1.5;">'+avFormatNotes(text)+'</div></div>';
+}
+function renderAvInstallerInstructions(jobId,text){
+  var el=document.getElementById('avjvm-installer-notes-wrap-'+jobId); if(!el) return;
+  el.innerHTML=avInstallerInstructionsHtml(text);
 }
 // Owner-only "cancel a mistake" control for auto-added entries — added 2026-08-02 per Michele's
 // request. Never shown to managers/installers (avNotesBlockHtml only renders the × for
@@ -6375,9 +6409,12 @@ function avRenderInstallerJobCards(jobs){
     return '<div class="inst-job-card">'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;"><div style="font-size:16px;font-weight:700;color:var(--dark);flex:1;">'+(j.name||'')+'</div><span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:#E8F0FE;color:var(--av);flex-shrink:0;margin-left:8px;">'+(j.status||'')+'</span></div>'+
       '<div style="font-size:13px;color:var(--mid);margin-bottom:10px;">'+(j.client||'')+(j.location?' · 📍 '+j.location:'')+'</div>'+
-      // 2026-08-07, at Michele's request: Notes/Instructions is never shown to installers at
-      // all any more (previously an opt-in toggle) - no notes-wrap container here means
-      // renderAvJobNotes() below is always a safe no-op for this card, by construction.
+      // 2026-08-07, at Michele's request: general Notes/Instructions (sourced from Grassi/Friul
+      // project text) is never shown to installers at all any more - no notes-wrap container
+      // here means renderAvJobNotes() elsewhere is always a safe no-op for this card, by
+      // construction. In its place: a separate, always-safe field managers write fresh,
+      // specifically for installers - see renderAvInstallerInstructions().
+      '<div id="avjvm-installer-notes-wrap-'+j.id+'" style="margin-bottom:10px;"></div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Progress</span><span id="ipval-'+j.id+'" style="font-size:14px;font-weight:700;color:var(--av);">'+(j.progress||0)+'%</span></div>'+
       '<div class="av-prog-bar" style="margin-bottom:6px;"><div class="av-prog-fill" style="width:'+(j.progress||0)+'%"></div></div>'+
       '<input type="range" min="0" max="100" step="5" value="'+(j.progress||0)+'" oninput="instUpdateProgLive(\''+j.id+'\',parseInt(this.value),document.getElementById(\'ipval-'+j.id+'\'))" style="width:100%;accent-color:var(--av);margin-bottom:14px;">'+
@@ -7003,10 +7040,10 @@ function avSyncJobsFromFirestore(){
       avJobs.unshift({
         id:id, name:d.name||d.client||id, brand:d.brand||'', status:d.status||'Upcoming',
         client:d.client||'', location:d.location||'', startDate:d.startDate||'', endDate:d.endDate||'',
-        notes:d.notes||'', avAutoLog:d.avAutoLog||[],
+        notes:d.notes||'', avAutoLog:d.avAutoLog||[], installerInstructions:d.installerInstructions||'',
         installers:d.installers||[], docs:d.docs||{drawings:false,cuttingList:false,packingList:false,installNotes:false},
         progress:d.progress||0, feed:d.feed||[], stages:d.stages||[], snags:_snagsArr, dailyLog:d.dailyLog||[], variations:d.variations||[],
-        linkedProjectId:d.linkedProjectId||'', notesVisibleToInstallers:d.notesVisibleToInstallers===true, updated:d.updated||new Date().toISOString()
+        linkedProjectId:d.linkedProjectId||'', updated:d.updated||new Date().toISOString()
       });
       added++;
       if(d.linkedProjectId&&typeof projects!=='undefined'){
