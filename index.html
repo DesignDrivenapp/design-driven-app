@@ -2065,6 +2065,16 @@ async function ppFaceId(){
     <div style="flex:1;text-align:center;"><div class="tb-title">Avantgarde</div></div>
     <button id="avOwnerSignOutBtn" onclick="avOwnerSignOut()" style="display:none;background:none;border:1px solid var(--line);border-radius:var(--rs);padding:5px 10px;font-size:11px;font-weight:600;color:var(--sub);cursor:pointer;flex-shrink:0;">Switch account</button>
   </div>
+  <!-- 2026-08-08: shown only to the owner, only when THIS device itself is still on the
+       Avantgarde-only approval tier (separate from Team Access role - see avIsAccessRestricted).
+       Self-service so Michele never again needs a manual Firestore edit just to unlock his own
+       device - see avUnlockFullAccessOnThisDevice() below. -->
+  <div id="avOwnerUnlockBanner" style="display:none;margin:14px 16px 0;padding:12px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:var(--rs);cursor:pointer;" onclick="avUnlockFullAccessOnThisDevice()">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:13px;font-weight:600;color:#1565C0;">🔓 This device is Avantgarde-only</div>
+      <div style="color:#1565C0;font-size:13px;">Unlock full access →</div>
+    </div>
+  </div>
   <div class="brand-hero"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MjAgNzYiPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFCMkY4QSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0ic3F1YXJlIj48cmVjdCB4PSI0IiB5PSIyIiB3aWR0aD0iNjgiIGhlaWdodD0iNjgiLz48bGluZSB4MT0iMjciIHkxPSIyIiB4Mj0iMjciIHkyPSI3MCIvPjxsaW5lIHgxPSI1MCIgeTE9IjIiIHgyPSI1MCIgeTI9IjcwIi8+PGxpbmUgeDE9IjAiIHkxPSIyNSIgeDI9Ijc2IiB5Mj0iMjUiLz48bGluZSB4MT0iMCIgeTE9IjQ4IiB4Mj0iNzYiIHkyPSI0OCIvPjwvZz48dGV4dCB4PSI4NiIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCxIZWx2ZXRpY2Esc2Fucy1zZXJpZiIgZm9udC1zaXplPSIzOCIgZm9udC13ZWlnaHQ9IjkwMCIgZmlsbD0iIzFCMkY4QSIgbGV0dGVyLXNwYWNpbmc9IjIiPkFWQU5UR0FSREU8L3RleHQ+PHRleHQgeD0iODgiIHk9IjY4IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxMyIgZm9udC1zdHlsZT0iaXRhbGljIiBmaWxsPSIjMUIyRjhBIj5RdWFsaXR5IHRocm91Z2ggUGFzc2lvbjwvdGV4dD48L3N2Zz4=" style="width:100%;height:60px;object-fit:contain;padding:0 12px;" alt="Avantgarde"></div>
   <div class="sub-grid">
     <div class="sub-tile" onclick="nav('av-calc')"><div class="sub-icon" style="background:var(--accent-soft);">🧮</div><div class="sub-tile-name">Quote Calculator</div><div class="sub-tile-desc">Hybrid smart estimate</div></div>
@@ -3275,6 +3285,7 @@ function nav(id){
   if(id==="settings") nav_settings_open();
   if(id==="grassi-calc"){if(calcLines.length===0)calcAddLine();else calcRenderLines();}
   if(id==="brand-friul") renderFriulStats();
+  if(id==="brand-av"&&typeof avRefreshOwnerUnlockBanner==='function') avRefreshOwnerUnlockBanner();
   history_stack.push(id);
   // sync bottom nav
   document.querySelectorAll(".ni").forEach(n=>n.classList.remove("active"));
@@ -7365,6 +7376,39 @@ function avSyncRestrictedModeClass(){
     if(avIsAccessRestricted()) document.body.classList.add('av-restricted-mode');
     else document.body.classList.remove('av-restricted-mode');
   }catch(e){}
+  try{ avRefreshOwnerUnlockBanner(); }catch(e){}
+}
+// 2026-08-08: shows/hides the "This device is Avantgarde-only" banner on the brand-av screen.
+// Deliberately narrower than avIsAccessRestricted() - only fires for the OWNER, and only when
+// the DEVICE itself (not the Team Access role) is the thing holding them back, since a manager
+// or installer seeing "Unlock full access" would defeat the entire point of that lock.
+function avRefreshOwnerUnlockBanner(){
+  var b=document.getElementById('avOwnerUnlockBanner'); if(!b) return;
+  var show = !!(avCurrentUser && avCurrentUser.role==='owner' && localStorage.getItem(_LKEY)==='avantgarde');
+  b.style.display = show ? 'block' : 'none';
+}
+// Self-service replacement for the manual Firebase-console Firestore edit this used to require
+// (see [[project_dd_app_avantgarde_shared]] memory - Michele got locked out of his own phone
+// this way once already). Only ever reachable by someone who has already proven they're the
+// owner via the Team Access passcode, and only ever affects the device it's tapped on - it
+// can't be used to grant access to someone else's device.
+function avUnlockFullAccessOnThisDevice(){
+  if(!avCurrentUser||avCurrentUser.role!=='owner'){ showToast('Only the owner can do this'); return; }
+  if(!confirm('Grant this device full access to the whole app (Grassi/Friul/Agape/Home), not just Avantgarde?\n\nOnly do this on a device that belongs to you.')) return;
+  localStorage.setItem(_LKEY,'full');
+  avSyncRestrictedModeClass();
+  // Best-effort: also update the underlying access-request record so the Access Requests admin
+  // screen reflects reality, and so this doesn't silently drift if the device is ever reset.
+  // Not required for the unlock itself to work - that already happened via localStorage above -
+  // so failures here are logged, not surfaced, per the pattern used everywhere else in this file.
+  try{
+    var _reqUid = localStorage.getItem(_RKEY);
+    if(_reqUid && avDb){
+      avDb.collection('accessRequests').doc(_reqUid).update({accessLevel:'full', decidedAt: firebase.firestore.FieldValue.serverTimestamp(), decidedBy: avCurrentUser.uid}).catch(function(e){ console.error('AV access request level sync failed', e); });
+    }
+  }catch(e){ console.error('AV access request level sync failed', e); }
+  showToast('Full access unlocked on this device ✓');
+  nav('home');
 }
 function avRefreshAccessReqBanner(){
   var banner=document.getElementById('avAccessReqBanner'); if(!banner||!avDb) return;
