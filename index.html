@@ -2096,6 +2096,7 @@ function _showAddToHomeScreen(){
   <div class="topbar">
     <button class="tb-back" style="color:var(--accent)" onclick="nav('home')">← Home</button>
     <div style="flex:1;text-align:center;"><div class="tb-title">Avantgarde</div></div>
+    <button id="avChangePasscodeBtn" onclick="avChangeMyPasscode()" style="display:none;background:none;border:1px solid var(--line);border-radius:var(--rs);padding:5px 10px;font-size:11px;font-weight:600;color:var(--sub);cursor:pointer;flex-shrink:0;margin-right:6px;">🔑 Passcode</button>
     <button id="avOwnerSignOutBtn" onclick="avOwnerSignOut()" style="display:none;background:none;border:1px solid var(--line);border-radius:var(--rs);padding:5px 10px;font-size:11px;font-weight:600;color:var(--sub);cursor:pointer;flex-shrink:0;">Switch account</button>
   </div>
   <!-- 2026-08-08: shown only to the owner, only when THIS device itself is still on the
@@ -2299,6 +2300,18 @@ function _showAddToHomeScreen(){
   <div class="ni" id="nav-settings" onclick="showSettingsTab()"><div class="ni-icon">⚙️</div><div class="ni-label">Settings</div></div>
 </nav>
 <div class="toast" id="toast"></div>
+
+<!-- ══ AV "PREVIEW AS" BANNER — added 2026-08-08. Owner-only, purely client-side: lets Michele
+     see exactly what a manager/installer sees without knowing their passcode, by swapping the
+     local avCurrentUser only — avAuth's real Firebase session stays signed in as Michele the
+     whole time, so Firestore security rules (which key off the real request.auth.uid, never
+     this local variable) stay exactly as permissive as normal and nothing here can trigger a
+     permission-denied. Fixed position so it stays visible no matter which screen he navigates
+     to while previewing. See avPreviewAsTeamMember/avExitPreview below. ══════════════════════ -->
+<div id="avPreviewBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1B2F8A;color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);">
+  <span id="avPreviewBannerText" style="font-size:13px;font-weight:600;"></span>
+  <button onclick="avExitPreview()" style="background:#fff;color:#1B2F8A;border:none;border-radius:var(--rs);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">Exit preview</button>
+</div>
 
 <!-- ══ PRODUCTION SYNC MODAL ═════════════════════════════════════════════ -->
 <div class="overlay" id="prodSyncModal">
@@ -6108,9 +6121,9 @@ function viewAvJob(id){
       ${_avVisibleDocs.length&&avCurrentUser&&(avCurrentUser.role==='owner'||avCurrentUser.role==='manager')?`<div style="margin-top:14px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Supplier project documents <span style="font-weight:400;text-transform:none;">· reference only</span></div><div style="background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:0 12px;">${_avVisibleDocs.map(d=>`<div class="av-check-row"><span style="font-size:13px;">📄 ${_avDocDisplayName(d)}</span>${d.date?`<span style="font-size:11px;color:var(--sub);flex-shrink:0;margin-left:8px;">${fmtDate(d.date)}</span>`:''}</div>`).join('')}</div><div style="font-size:11px;color:var(--sub);margin-top:6px;">Names only, from the linked supplier project — commercial/pricing paperwork filtered out. Not visible to installers.</div></div>`:''}
       <div id="avjvm-notes-wrap-${j.id}">${avNotesBlockHtml(j.id,j.notes,j.avAutoLog)}</div>
       <div id="avjvm-installer-notes-wrap-${j.id}">${avInstallerInstructionsHtml(j.installerInstructions||'')}</div>
-      <div style="margin-top:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><div id="avjvm-photos-count-${j.id}" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Photos</div><label style="background:var(--accent);color:#fff;border-radius:var(--rs);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">📷 Add<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="uploadAvPhotos('${j.id}',this)"></label></div><div id="avjvm-photos-${j.id}"><div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:var(--sub);font-size:13px;">Loading…</div></div></div>
-      <div style="margin-top:14px;"><div id="avjvm-activity-count-${j.id}" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Activity</div><div id="avjvm-activity-${j.id}" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:10px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>
-        <div style="display:flex;gap:8px;"><input class="fi" id="avFeedIn-${j.id}" placeholder="Add a note…" style="flex:1;font-size:13px;" onkeydown="if(event.key==='Enter')addAvNoteLive('${j.id}',false)"><button onclick="addAvNoteLive('${j.id}',false)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Note</button><button onclick="addAvNoteLive('${j.id}',true)" style="background:#C62828;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;">⚠</button></div>
+      <div style="margin-top:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><div id="avjvm-activity-count-${j.id}" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Updates</div></div><div id="avjvm-activity-${j.id}" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:8px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>
+        <div id="avjvm-staged-${j.id}" style="display:none;align-items:center;gap:10px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;"><input class="fi" id="avFeedIn-${j.id}" placeholder="Add an update…" style="flex:1;font-size:13px;" onkeydown="if(event.key==='Enter')postAvFeedLive('${j.id}',false)"><label style="background:var(--accent-soft);color:var(--accent);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">📷<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="avStageFeedPhotos('${j.id}',this)"></label><button onclick="postAvFeedLive('${j.id}',false)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Post</button><button onclick="postAvFeedLive('${j.id}',true)" style="background:#C62828;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;">⚠</button></div>
       </div>
     </div>
     <!-- STAGES -->
@@ -6286,7 +6299,8 @@ function avAttachJobLiveListeners(jobId){
     // Also now shows the real error (see docs handler above and the installer feed handler
     // below) instead of a fixed "check connection" string that hides the actual cause.
     var _emsg2=(e&&(e.message||e.code))?String(e.message||e.code):'';
-    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;word-break:break-word;">Could not load'+(_emsg2?' — '+_emsg2:' — check connection')+'</div>';
+    // Photos/Activity were merged into one box 2026-08-08 (see renderAvJobFeed) - only
+    // avjvm-activity-{jobId} exists in the template now.
     var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg2?' — '+_emsg2:' — check connection')+'</div>';
   });
   // Safety net: on a slow/stalled connection Firestore's listener can sit silently pending —
@@ -6299,8 +6313,6 @@ function avAttachJobLiveListeners(jobId){
       if (d && d.innerHTML.indexOf('Loading') !== -1) avShowJobLiveError(jobId, 'Still loading — check your connection and try reopening this project');
     }
     if (!avjvmFeedLoaded) {
-      var pEl=document.getElementById('avjvm-photos-'+jobId);
-      if (pEl && pEl.innerHTML.indexOf('Loading') !== -1) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:var(--sub);font-size:13px;">Still loading — check your connection and try reopening this project</div>';
       var aEl=document.getElementById('avjvm-activity-'+jobId);
       if (aEl && aEl.innerHTML.indexOf('Loading') !== -1) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:var(--sub);">Still loading — check your connection and try reopening this project</div>';
     }
@@ -6470,7 +6482,11 @@ function renderAvInstallerLivePortal(){
   var root=document.getElementById('avInstLivePortalRoot'); if(!root)return;
   avDetachInstallerPortal();
   if(!avDb||!avCurrentUser){ root.innerHTML='<div class="empty" style="margin-top:24px;"><p>Not connected — check your internet and reopen Avantgarde.</p></div>'; return; }
-  root.innerHTML='<div class="inst-portal-header"><div><div style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Logged in as</div><div class="inst-portal-greeting">👷 '+avCurrentUser.name+'</div></div><button class="inst-portal-logout" onclick="avInstallerLiveLogout()">Sign out</button></div><div id="avInstJobList" style="padding:14px 16px;"><div style="text-align:center;color:var(--sub);font-size:13px;padding:20px;">Loading your jobs…</div></div>';
+  // Sign out really ends the avAuth Firebase session - during a preview (see
+  // avPreviewAsTeamMember) that session still belongs to the real owner, so signing out here
+  // would kick the owner out of the app entirely rather than just leaving the preview. Route
+  // to avExitPreview() instead whenever this portal is being shown as a preview.
+  root.innerHTML='<div class="inst-portal-header"><div><div style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Logged in as</div><div class="inst-portal-greeting">👷 '+avCurrentUser.name+'</div></div><div style="display:flex;gap:8px;">'+(avCurrentUser._isPreview?'':'<button class="inst-portal-logout" onclick="avChangeMyPasscode()">🔑 Passcode</button>')+'<button class="inst-portal-logout" onclick="'+(avCurrentUser._isPreview?'avExitPreview()':'avInstallerLiveLogout()')+'">'+(avCurrentUser._isPreview?'Exit preview':'Sign out')+'</button></div></div><div id="avInstJobList" style="padding:14px 16px;"><div style="text-align:center;color:var(--sub);font-size:13px;padding:20px;">Loading your jobs…</div></div>';
   avInstListUnsub = avDb.collection('avJobs').where('installerIds','array-contains',avCurrentUser.uid).onSnapshot(function(snap){
     var jobs=[]; snap.forEach(function(d){ jobs.push(Object.assign({id:d.id}, d.data())); });
     avRenderInstallerJobCards(jobs);
@@ -6501,9 +6517,9 @@ function avRenderInstallerJobCards(jobs){
       '<input type="range" min="0" max="100" step="5" value="'+(j.progress||0)+'" oninput="instUpdateProgLive(\''+j.id+'\',parseInt(this.value),document.getElementById(\'ipval-'+j.id+'\'))" style="width:100%;accent-color:var(--av);margin-bottom:14px;">'+
       '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Documents</div><div id="avjvm-docs-'+j.id+'" style="background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:0 12px;margin-bottom:14px;"><div style="padding:12px 0;font-size:13px;color:var(--sub);">Loading…</div></div>'+
       '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Snags</div><div id="avjvm-snags-'+j.id+'" style="background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:14px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div id="avjvm-photos-count-'+j.id+'" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Photos</div><label style="background:var(--accent);color:#fff;border-radius:var(--rs);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">📷 Add<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="uploadAvPhotos(\''+j.id+'\',this)"></label></div><div id="avjvm-photos-'+j.id+'" style="margin-bottom:14px;"><div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:16px;text-align:center;color:var(--sub);font-size:13px;">Loading…</div></div>'+
-      '<div id="avjvm-activity-count-'+j.id+'" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Activity</div><div id="avjvm-activity-'+j.id+'" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:10px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>'+
-      '<div style="display:flex;gap:8px;"><input class="fi" id="avFeedIn-'+j.id+'" placeholder="Add a site note…" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\')addAvNoteLive(\''+j.id+'\',false)"><button onclick="addAvNoteLive(\''+j.id+'\',false)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Note</button><button onclick="addAvNoteLive(\''+j.id+'\',true)" style="background:#C62828;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;">⚠</button></div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div id="avjvm-activity-count-'+j.id+'" style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;">Updates</div></div><div id="avjvm-activity-'+j.id+'" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--rs);overflow:hidden;margin-bottom:8px;"><div style="padding:12px;font-size:13px;color:var(--sub);">Loading…</div></div>'+
+      '<div id="avjvm-staged-'+j.id+'" style="display:none;align-items:center;gap:10px;margin-bottom:8px;"></div>'+
+      '<div style="display:flex;gap:8px;"><input class="fi" id="avFeedIn-'+j.id+'" placeholder="Add a site update…" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\')postAvFeedLive(\''+j.id+'\',false)"><label style="background:var(--accent-soft);color:var(--accent);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">📷<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="avStageFeedPhotos(\''+j.id+'\',this)"></label><button onclick="postAvFeedLive(\''+j.id+'\',false)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">Post</button><button onclick="postAvFeedLive(\''+j.id+'\',true)" style="background:#C62828;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;">⚠</button></div>'+
     '</div>';
   }).join('');
   jobs.forEach(function(j){ avAttachInstallerJobListeners(j.id); });
@@ -6546,7 +6562,8 @@ function avAttachInstallerJobListeners(jobId){
     // SDK's own error message normally includes a direct link to create it). If this is what's
     // happening, e.code will read 'failed-precondition' rather than 'permission-denied'.
     var _emsg=(e&&(e.message||e.code))?String(e.message||e.code):'';
-    var pEl=document.getElementById('avjvm-photos-'+jobId); if(pEl) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:#C62828;font-size:13px;word-break:break-word;">Could not load'+(_emsg?' — '+_emsg:' — check connection')+'</div>';
+    // Photos/Activity were merged into one box 2026-08-08 (see renderAvJobFeed) - only
+    // avjvm-activity-{jobId} exists in the installer card template now.
     var aEl=document.getElementById('avjvm-activity-'+jobId); if(aEl) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:#C62828;word-break:break-word;">Could not load'+(_emsg?' — '+_emsg:' — check connection')+'</div>';
   });
   avInstJobUnsubs[jobId] = {job:jobUnsub, feed:feedUnsub};
@@ -6559,7 +6576,6 @@ function avAttachInstallerJobListeners(jobId){
       var sEl=document.getElementById('avjvm-snags-'+jobId); if (sEl && sEl.innerHTML.indexOf('Loading')!==-1) sEl.innerHTML='<div style="padding:12px;font-size:13px;color:var(--sub);">Still loading — check your connection</div>';
     }
     if (!instFeedLoaded) {
-      var pEl=document.getElementById('avjvm-photos-'+jobId); if (pEl && pEl.innerHTML.indexOf('Loading')!==-1) pEl.innerHTML='<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:16px;text-align:center;color:var(--sub);font-size:13px;">Still loading — check your connection</div>';
       var aEl=document.getElementById('avjvm-activity-'+jobId); if (aEl && aEl.innerHTML.indexOf('Loading')!==-1) aEl.innerHTML='<div style="padding:12px;font-size:13px;color:var(--sub);">Still loading — check your connection</div>';
     }
   }, 10000);
@@ -6587,45 +6603,47 @@ function avOwnerSignOut(){
   else { avCurrentUser=null; avSyncRestrictedModeClass(); nav('brand-av'); }
 }
 
+// 2026-08-08, at Michele's request: Photos and Activity used to be two disconnected boxes -
+// a photo with no text next to it, and notes with no photo. Once installers start uploading
+// daily site photos this became impossible to trace ("site inspection 7th August" plus its
+// photo(s) plus follow-up comments needs to read as ONE item, visible to owner/manager/
+// installer alike). This now renders a single chronological feed. To do that without losing
+// anything already written, every existing entry shape is normalised into one common form
+// here: old standalone 'photo' docs (single fileUrl+caption, from the pre-2026-08-08 Add-photo
+// flow) become a one-photo entry; old 'note'/'problem' docs (text only) become a photo-less
+// entry; new entries (written by postAvFeedLive below) already carry both text and photoUrls[]
+// together in one doc. Firestore document 'type' is left as whatever it already was for old
+// docs (still needed for the isProblem/resolved semantics) - only the rendering is unified.
 function renderAvJobFeed(jobId, items){
-  var photos=items.filter(function(f){return f.type==='photo';});
-  var notes=items.filter(function(f){return f.type!=='photo';});
-  var pc=document.getElementById('avjvm-photos-count-'+jobId); if(pc) pc.textContent='Photos ('+photos.length+')';
-  var ac=document.getElementById('avjvm-activity-count-'+jobId); if(ac) ac.textContent='Activity ('+notes.length+')';
-  var pEl=document.getElementById('avjvm-photos-'+jobId);
-  if (pEl) {
-    // 2026-08-08, at Michele's request: once there are a lot of photos on a job, a bare thumbnail
-    // grid with no date or context becomes hard to make sense of - changed to a stacked list, one
-    // row per photo, in the same date/author + text style already used for Activity below, so a
-    // photo with a note reads the same way a Next Action or a general note does. isOwner/isManager
-    // get Add/Edit-note AND Delete controls per photo (matches the feed 'update'/'delete' Firestore
-    // rules, which - like everywhere else in this file - only ever allow managers/owner to edit or
-    // remove an existing feed entry; an installer can only set a caption at the moment they upload,
-    // never edit or delete it after - same restriction Michele already has on Activity notes).
-    var _canEditCaption = avCurrentUser && (avCurrentUser.role==='owner'||avCurrentUser.role==='manager');
-    pEl.innerHTML = photos.length===0
-      ? '<div style="background:var(--bg);border:1px dashed var(--line);border-radius:var(--rs);padding:20px;text-align:center;color:var(--sub);font-size:13px;">No photos yet</div>'
-      : photos.map(function(p){
-          var _safeCap=(p.caption||'').replace(/'/g,"\\'").replace(/\n/g,' ');
-          return '<div class="av-feed-item" style="display:flex;gap:10px;align-items:flex-start;">'+
-            '<img src="'+p.fileUrl+'" onclick="window.open(\''+p.fileUrl+'\',\'_blank\')" style="width:56px;height:56px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;">'+
-            '<div style="flex:1;min-width:0;">'+
-              '<div class="av-feed-meta">📷 '+(p.authorName||'Team')+' · '+(p.date?new Date(p.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'')+'</div>'+
-              (p.caption?'<div class="av-feed-text">'+p.caption+'</div>':'')+
-              (_canEditCaption?('<div style="margin-top:4px;display:flex;gap:12px;">'+
-                '<button onclick="avEditPhotoCaption(\''+jobId+'\',\''+p.id+'\',\''+_safeCap+'\')" style="background:none;border:none;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;padding:0;">'+(p.caption?'✏️ Edit note':'+ Add note')+'</button>'+
-                '<button onclick="avDeletePhoto(\''+jobId+'\',\''+p.id+'\')" style="background:none;border:none;color:#C62828;font-size:11px;font-weight:600;cursor:pointer;padding:0;">🗑 Delete</button>'+
-              '</div>'):'')+
-            '</div>'+
-          '</div>';
-        }).join('');
-  }
+  var norm = items.map(function(f){
+    if (f.type==='photo') {
+      return {id:f.id, text:f.caption||'', photoUrls:f.fileUrl?[f.fileUrl]:[], isProblem:false, resolved:false, authorName:f.authorName, date:f.date};
+    }
+    return {id:f.id, text:f.text||'', photoUrls:f.photoUrls||[], isProblem:f.type==='problem', resolved:!!f.resolved, authorName:f.authorName, date:f.date};
+  });
+  var cEl=document.getElementById('avjvm-activity-count-'+jobId); if(cEl) cEl.textContent='Updates ('+norm.length+')';
   var aEl=document.getElementById('avjvm-activity-'+jobId);
-  if (aEl) {
-    aEl.innerHTML = notes.length===0 ? '<div style="padding:12px;font-size:13px;color:var(--sub);">No activity yet</div>' : notes.map(function(f){
-      return '<div class="av-feed-item '+(f.type==='problem'?'av-feed-problem':'')+'"><div class="av-feed-meta">'+(f.type==='problem'?'⚠️':'📝')+' '+(f.authorName||'Team')+' · '+(f.date?new Date(f.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'')+'</div><div class="av-feed-text">'+(f.text||'')+'</div>'+(f.type==='problem'&&!f.resolved?'<button onclick="resolveAvFeedLive(\''+jobId+'\',\''+f.id+'\')" style="margin-top:6px;background:none;border:1px solid #C62828;border-radius:6px;padding:3px 10px;font-size:11px;color:#C62828;cursor:pointer;">Mark resolved</button>':'')+'</div>';
-    }).join('');
-  }
+  if (!aEl) return;
+  if (norm.length===0) { aEl.innerHTML='<div style="padding:12px;font-size:13px;color:var(--sub);">No updates yet</div>'; return; }
+  // Managers/owner get a Delete control on every entry (matches the feed collection's Firestore
+  // 'delete' rule, isManagerOrOwner() - installers can post but never edit/remove after the fact,
+  // same restriction that already applied separately to photos and notes before this merge).
+  var canManage = avCurrentUser && (avCurrentUser.role==='owner'||avCurrentUser.role==='manager');
+  aEl.innerHTML = norm.map(function(f){
+    var photosHtml = f.photoUrls.length ? ('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'+f.photoUrls.map(function(u){
+      return '<img src="'+u+'" onclick="window.open(\''+u+'\',\'_blank\')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;cursor:pointer;">';
+    }).join('')+'</div>') : '';
+    var icon = f.isProblem?'⚠️':(f.photoUrls.length?'📷':'📝');
+    var controlsHtml = '';
+    if (f.isProblem && !f.resolved) controlsHtml += '<button onclick="resolveAvFeedLive(\''+jobId+'\',\''+f.id+'\')" style="margin-top:6px;margin-right:12px;background:none;border:1px solid #C62828;border-radius:6px;padding:3px 10px;font-size:11px;color:#C62828;cursor:pointer;">Mark resolved</button>';
+    if (canManage) controlsHtml += '<button onclick="avDeleteFeedEntry(\''+jobId+'\',\''+f.id+'\')" style="margin-top:6px;background:none;border:none;color:#C62828;font-size:11px;font-weight:600;cursor:pointer;padding:0;">🗑 Delete</button>';
+    return '<div class="av-feed-item '+(f.isProblem?'av-feed-problem':'')+'">'+
+      '<div class="av-feed-meta">'+icon+' '+(f.authorName||'Team')+' · '+(f.date?new Date(f.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'')+(f.resolved?' · Resolved':'')+'</div>'+
+      (f.text?'<div class="av-feed-text">'+f.text+'</div>':'')+
+      photosHtml+
+      (controlsHtml?'<div>'+controlsHtml+'</div>':'')+
+    '</div>';
+  }).join('');
 }
 function uploadAvDoc(jobId, key, input){
   var file = input.files && input.files[0]; if (!file) return;
@@ -6642,68 +6660,85 @@ function uploadAvDoc(jobId, key, input){
   });
   input.value='';
 }
-function uploadAvPhotos(jobId, input){
-  var files = Array.from(input.files||[]); if (!files.length) return;
-  if (!avDb || !avCurrentUser) { showToast('Sign in required'); return; }
-  // 2026-08-08, at Michele's request: photos can now carry a date + note, same as an Activity
-  // entry - ask once per batch rather than per file (uploads are almost always "here's a few
-  // shots of the same thing"), leave blank to skip. Applies to every photo in this selection;
-  // editable afterwards by owner/manager via avEditPhotoCaption below.
-  var _caption = (window.prompt('Add a note for '+(files.length>1?'these '+files.length+' photos':'this photo')+' (optional):','')||'').trim();
-  showToast('Uploading ' + files.length + ' photo(s)…');
-  ensureAvJobSynced(jobId).then(function(){
-    return Promise.all(files.map(function(file){
-      return avCloudinaryUpload(file).then(function(res){
-        return avDb.collection('avJobs').doc(jobId).collection('feed').add({
-          type:'photo', fileUrl:res.url, caption:_caption, authorUid:avCurrentUser.uid, authorName:avCurrentUser.name,
-          authorRole:avCurrentUser.role, visibility:'shared', date:new Date().toISOString()
-        });
-      });
-    }));
-  }).then(function(){ showToast('Photo(s) added ✓');
-    avSendPushNotification('📷 Photo added', avCurrentUser.name+' added '+files.length+' photo(s)');
-  }).catch(function(e){
-    console.error('AV photo upload failed', e); showToast('Upload failed: ' + (e && e.message ? e.message.slice(0,120) : 'check connection'));
-  });
+// ── Combined note+photo composer — added 2026-08-08 at Michele's request, replacing the old
+// separate "Add photo" / "Add note" controls. Photos chosen via the 📷 button are staged
+// locally (not yet uploaded) so several photos plus a line of text end up in ONE feed entry
+// when Post is pressed - e.g. "site inspection 7th August" with the photos taken on that visit,
+// rather than the photo(s) sitting in an unrelated box with no context. Works identically for
+// owner, manager and installer.
+var avStagedPhotos = {};
+function avStageFeedPhotos(jobId, input){
+  var files = Array.from(input.files||[]); if (!files.length) { input.value=''; return; }
+  avStagedPhotos[jobId] = (avStagedPhotos[jobId]||[]).concat(files);
+  avRenderStagedPhotos(jobId);
   input.value='';
 }
-// Owner/manager only, per the feed collection's Firestore 'update' rule (isManagerOrOwner()) -
-// lets them add a note to a photo after the fact, or change one already there.
-function avEditPhotoCaption(jobId, feedId, currentCaption){
-  if(!avCurrentUser||(avCurrentUser.role!=='owner'&&avCurrentUser.role!=='manager')){ showToast('Only the owner or a manager can edit this'); return; }
-  var _next = window.prompt('Note for this photo:', currentCaption||'');
-  if(_next===null) return; // cancelled
-  _next = _next.trim();
-  if(!avDb) return;
-  avDb.collection('avJobs').doc(jobId).collection('feed').doc(feedId).update({caption:_next}).then(function(){
-    showToast('Note saved ✓');
-  }).catch(function(e){ console.error('AV photo caption update failed', e); showToast('Could not save: ' + (e&&e.message?e.message.slice(0,120):'check connection')); });
+function avRenderStagedPhotos(jobId){
+  var el=document.getElementById('avjvm-staged-'+jobId); if(!el) return;
+  var files = avStagedPhotos[jobId]||[];
+  if (!files.length) { el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML='<span style="font-size:12px;color:var(--av);font-weight:600;">📷 '+files.length+' photo'+(files.length>1?'s':'')+' attached</span><button onclick="avClearStagedPhotos(\''+jobId+'\')" style="background:none;border:none;color:var(--sub);font-size:12px;cursor:pointer;text-decoration:underline;">Clear</button>';
+}
+function avClearStagedPhotos(jobId){ delete avStagedPhotos[jobId]; avRenderStagedPhotos(jobId); }
+// Guards against a fast double-tap on Post re-sending the same text/photos as a duplicate
+// entry (and duplicate Cloudinary uploads) before the first call has finished.
+var avFeedPosting = {};
+// Posts ONE feed entry combining whatever text is in the input and whatever photos are staged
+// (either, both, or - if isProblem - neither, since an issue can just be a text flag). Uploads
+// staged photos to Cloudinary first, then writes a single Firestore doc with text + photoUrls[]
+// together, so the unified renderAvJobFeed above shows them as one traceable item.
+function postAvFeedLive(jobId, isProblem){
+  if (avFeedPosting[jobId]) { showToast('Still posting — please wait'); return; }
+  var inp=document.getElementById('avFeedIn-'+jobId);
+  var text = inp ? inp.value.trim() : '';
+  // Snapshot the staged list rather than reading avStagedPhotos[jobId] live throughout - if the
+  // user stages MORE photos while this upload is still in flight, those newly-staged ones must
+  // survive and go out in the NEXT post, not get silently deleted when this one finishes.
+  var files = (avStagedPhotos[jobId]||[]).slice();
+  if (!text && !files.length) return;
+  if (!avDb || !avCurrentUser) { showToast('Sign in required'); return; }
+  avFeedPosting[jobId] = true;
+  if (inp) inp.value='';
+  showToast(files.length ? ('Uploading '+files.length+' photo(s)…') : (isProblem?'Logging issue…':'Posting…'));
+  ensureAvJobSynced(jobId).then(function(){
+    return Promise.all(files.map(function(file){ return avCloudinaryUpload(file); }));
+  }).then(function(results){
+    var photoUrls = results.map(function(r){ return r.url; });
+    return avDb.collection('avJobs').doc(jobId).collection('feed').add({
+      type: isProblem?'problem':'entry', text:text, photoUrls:photoUrls, authorUid:avCurrentUser.uid,
+      authorName:avCurrentUser.name, authorRole:avCurrentUser.role, visibility:'shared',
+      date:new Date().toISOString(), resolved:false
+    }).then(function(){ return photoUrls; });
+  }).then(function(photoUrls){
+    // Remove only the exact File objects this post actually sent (by reference) - if more were
+    // staged in the meantime, they're untouched and stay ready for the next Post tap.
+    if (avStagedPhotos[jobId]) {
+      avStagedPhotos[jobId] = avStagedPhotos[jobId].filter(function(f){ return files.indexOf(f)===-1; });
+      if (!avStagedPhotos[jobId].length) delete avStagedPhotos[jobId];
+    }
+    avRenderStagedPhotos(jobId);
+    showToast(isProblem?'Issue logged ⚠':'Posted ✓');
+    var pushBody = avCurrentUser.name+' — '+(text?text.slice(0,120):(photoUrls.length+' photo(s)'));
+    avSendPushNotification(isProblem?'⚠️ Issue logged':(photoUrls.length?'📷 Update posted':'📝 New note'), pushBody);
+  }).catch(function(e){
+    // Failed - restore the typed text (staged photos were never removed from avStagedPhotos
+    // above, since that only happens in the success branch) so nothing the user entered is lost.
+    if (inp && !inp.value && text) inp.value = text;
+    console.error('AV feed post failed', e); showToast('Failed to save: ' + (e && e.message ? e.message.slice(0,120) : 'check connection'));
+  }).finally(function(){
+    avFeedPosting[jobId] = false;
+  });
 }
 // Owner/manager only, per the feed collection's Firestore 'delete' rule (isManagerOrOwner()) -
-// 2026-08-08, at Michele's request, to let a wrong/duplicate/unwanted site photo be removed
-// rather than sitting on the job permanently.
-function avDeletePhoto(jobId, feedId){
+// removes a whole combined entry (its text and any attached photos together).
+function avDeleteFeedEntry(jobId, feedId){
   if(!avCurrentUser||(avCurrentUser.role!=='owner'&&avCurrentUser.role!=='manager')){ showToast('Only the owner or a manager can delete this'); return; }
-  if(!confirm('Delete this photo?')) return;
+  if(!confirm('Delete this update?')) return;
   if(!avDb) return;
   avDb.collection('avJobs').doc(jobId).collection('feed').doc(feedId).delete().then(function(){
-    showToast('Photo deleted ✓');
-  }).catch(function(e){ console.error('AV photo delete failed', e); showToast('Could not delete: ' + (e&&e.message?e.message.slice(0,120):'check connection')); });
-}
-function addAvNoteLive(jobId, isProblem){
-  var inp=document.getElementById('avFeedIn-'+jobId); if (!inp || !inp.value.trim()) return;
-  if (!avDb || !avCurrentUser) { showToast('Sign in required'); return; }
-  var text = inp.value.trim();
-  ensureAvJobSynced(jobId).then(function(){
-    return avDb.collection('avJobs').doc(jobId).collection('feed').add({
-      type: isProblem?'problem':'note', text:text, authorUid:avCurrentUser.uid, authorName:avCurrentUser.name,
-      authorRole:avCurrentUser.role, visibility:'shared', date:new Date().toISOString(), resolved:false
-    });
-  }).then(function(){ inp.value=''; showToast(isProblem?'Issue logged ⚠':'Note added ✓');
-    avSendPushNotification(isProblem?'⚠️ Issue logged':'📝 New note', avCurrentUser.name+' — '+text.slice(0,120));
-  }).catch(function(e){
-    console.error('AV note add failed', e); showToast('Failed to save — check connection');
-  });
+    showToast('Deleted ✓');
+  }).catch(function(e){ console.error('AV feed delete failed', e); showToast('Could not delete: ' + (e&&e.message?e.message.slice(0,120):'check connection')); });
 }
 function resolveAvFeedLive(jobId, feedId){
   if (!avDb) return;
@@ -7331,8 +7366,16 @@ window.nav = function(id){
       avNavWrapped('brand-av');
       var tile = document.getElementById('avTeamAccessTile');
       if (tile) tile.style.display = (avCurrentUser.role==='owner'||avCurrentUser.role==='manager') ? '' : 'none';
+      // Also hidden while previewing (see avPreviewAsTeamMember) - this button really signs
+      // avAuth out of Firebase entirely, which would end the REAL owner's session mid-preview;
+      // the fixed "Exit preview" banner is the only way out of a preview.
       var signOutBtn = document.getElementById('avOwnerSignOutBtn');
-      if (signOutBtn) signOutBtn.style.display = '';
+      if (signOutBtn) signOutBtn.style.display = (avCurrentUser._isPreview) ? 'none' : '';
+      // Hidden while previewing someone else's account (see avPreviewAsTeamMember) - it would
+      // otherwise change the REAL signed-in owner's own passcode while looking like it belongs
+      // to the person being previewed, since preview never actually re-authenticates as them.
+      var pcBtn = document.getElementById('avChangePasscodeBtn');
+      if (pcBtn) pcBtn.style.display = (avCurrentUser._isPreview) ? 'none' : '';
       avMaybePromptPush();
       return;
     }
@@ -7374,7 +7417,13 @@ function avRenderTeamAdmin(){
     root.innerHTML = rows.map(function(p){
       var isActive = p.active !== false;
       var _safeName=(p.name||'').replace(/'/g,"\\'");
-      return '<div class="contact-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="min-width:0;"><div class="cc-name">' + p.name + '</div><div class="cc-role">' + (p.role||'') + (isActive?'':' · inactive') + '</div></div><div style="display:flex;gap:6px;flex-shrink:0;"><button onclick="toggleTeamMemberActive(\'' + p.uid + '\',' + (isActive?'false':'true') + ')" style="background:none;border:1px solid var(--line);border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:' + (isActive?'#C62828':'#2E7D32') + ';cursor:pointer;">' + (isActive?'Deactivate':'Reactivate') + '</button>'+(_isOwnerAdmin?('<button onclick="avDeleteTeamMember(\''+p.uid+'\',\''+_safeName+'\')" title="Delete permanently" style="background:none;border:1px solid #C62828;border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:#C62828;cursor:pointer;">🗑</button>'):'')+'</div></div></div>';
+      var _rNorm=(p.role||'').toString().trim().toLowerCase();
+      // Preview — owner-only, added 2026-08-08 so Michele can see exactly what a manager/
+      // installer sees without knowing their passcode (see avPreviewAsTeamMember). Not shown
+      // for his own row (nothing to preview) or while already previewing someone else.
+      var previewBtn = (_isOwnerAdmin && isActive && p.uid!==(avCurrentUser&&avCurrentUser.uid))
+        ? ('<button onclick="avPreviewAsTeamMember(\''+p.uid+'\',\''+_safeName+'\',\''+_rNorm+'\')" title="Preview their view" style="background:none;border:1px solid var(--line);border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;">👁</button>') : '';
+      return '<div class="contact-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="min-width:0;"><div class="cc-name">' + p.name + '</div><div class="cc-role">' + (p.role||'') + (isActive?'':' · inactive') + '</div></div><div style="display:flex;gap:6px;flex-shrink:0;">'+previewBtn+'<button onclick="toggleTeamMemberActive(\'' + p.uid + '\',' + (isActive?'false':'true') + ')" style="background:none;border:1px solid var(--line);border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:' + (isActive?'#C62828':'#2E7D32') + ';cursor:pointer;">' + (isActive?'Deactivate':'Reactivate') + '</button>'+(_isOwnerAdmin?('<button onclick="avDeleteTeamMember(\''+p.uid+'\',\''+_safeName+'\')" title="Delete permanently" style="background:none;border:1px solid #C62828;border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:#C62828;cursor:pointer;">🗑</button>'):'')+'</div></div></div>';
     }).join('');
   }).catch(function(e){
     root.innerHTML = '<div class="empty" style="margin-top:20px;"><p>Could not load team list.</p></div>';
@@ -7562,6 +7611,73 @@ function avDeleteTeamMember(uid, name){
   batch.delete(avDb.collection('users').doc(uid));
   batch.delete(avDb.collection('login_directory').doc(uid));
   batch.commit().then(function(){ showToast('Deleted ✓'); avRenderTeamAdmin(); }).catch(function(e){ showToast('Failed to delete'); console.error('AV team member delete failed', e); });
+}
+
+// ── "Preview as" — added 2026-08-08, per Michele's request to be able to check what a
+// manager/installer sees at any time, even after they can change their own passcode (which
+// means he can no longer just sign in as them with a passcode he knows). Deliberately does
+// NOT touch avAuth (Firebase Auth stays signed in as the real owner throughout) — only the
+// local avCurrentUser variable is swapped, so every Firestore security-rule check (all of
+// which key off the real request.auth.uid, never this local JS value) keeps behaving exactly
+// as it would for the signed-in owner. That's what makes this safe: it can never produce a
+// permission-denied error, and it can never actually grant the previewed person's Firebase
+// Auth session to anyone — Michele just sees the same screens they would.
+var avPreviewSavedUser = null;
+function avPreviewAsTeamMember(uid, name, role){
+  if(!avCurrentUser||avCurrentUser.role!=='owner'){ showToast('Only the owner can preview'); return; }
+  if(avCurrentUser._isPreview){ showToast('Exit the current preview first'); return; }
+  avPreviewSavedUser = avCurrentUser;
+  avCurrentUser = { uid: uid, name: name, role: (role||'').toString().trim().toLowerCase(), company: '', _isPreview: true };
+  avSyncRestrictedModeClass();
+  var banner=document.getElementById('avPreviewBanner');
+  if (banner) { banner.style.display='flex'; var t=document.getElementById('avPreviewBannerText'); if(t) t.textContent='👁 Previewing as '+name+' ('+avCurrentUser.role+')'; }
+  showToast('Previewing as '+name);
+  nav('brand-av'); // wrapped nav() routes installers to the live portal, managers to the admin home
+}
+function avExitPreview(){
+  if(!avPreviewSavedUser){ var banner=document.getElementById('avPreviewBanner'); if(banner) banner.style.display='none'; return; }
+  avCurrentUser = avPreviewSavedUser; avPreviewSavedUser = null;
+  avSyncRestrictedModeClass();
+  var banner=document.getElementById('avPreviewBanner'); if(banner) banner.style.display='none';
+  showToast('Exited preview');
+  nav('brand-av');
+}
+
+// ── Self-service passcode change — added 2026-08-08 at Michele's request, so managers and
+// installers no longer need to ask him to reset a forgotten/unwanted passcode. Available from
+// the topbar (owner/manager) and the installer live portal header (installer), but hidden
+// while previewing someone else's account (see avPreviewAsTeamMember above) — previewing never
+// re-authenticates as the previewed person, so acting on this button mid-preview would
+// silently change the REAL signed-in owner's own passcode while looking like it belonged to
+// whoever's being previewed.
+function avChangeMyPasscode(){
+  if(!avAuth||!avAuth.currentUser||!avCurrentUser){ showToast('Sign in required'); return; }
+  if(avCurrentUser._isPreview){ showToast('Exit preview first'); return; }
+  var current = window.prompt('Enter your CURRENT passcode:');
+  if(current===null) return; // cancelled
+  var next1 = window.prompt('Enter your NEW passcode (4–6 digits):');
+  if(next1===null) return;
+  next1 = next1.trim();
+  if(!/^\d{4,6}$/.test(next1)){ showToast('New passcode must be 4–6 digits'); return; }
+  var next2 = window.prompt('Re-enter your NEW passcode to confirm:');
+  if(next2===null) return;
+  if(next2.trim()!==next1){ showToast('Passcodes did not match — try again'); return; }
+  var email = avAuth.currentUser.email;
+  var cred = firebase.auth.EmailAuthProvider.credential(email, current);
+  avAuth.currentUser.reauthenticateWithCredential(cred).then(function(){
+    return avAuth.currentUser.updatePassword(next1);
+  }).then(function(){
+    showToast('Passcode changed ✓');
+  }).catch(function(e){
+    console.error('AV passcode change failed', e && e.code, e);
+    var code = e && e.code;
+    var msg = 'Could not change passcode — try again';
+    if (code==='auth/wrong-password'||code==='auth/invalid-credential'||code==='auth/invalid-login-credentials') msg = 'Current passcode is incorrect';
+    else if (code==='auth/too-many-requests') msg = 'Too many attempts — wait a minute and try again';
+    else if (code==='auth/network-request-failed') msg = 'No connection — check your internet and try again';
+    else if (code==='auth/weak-password') msg = 'New passcode is too weak — try a different one';
+    showToast(msg);
+  });
 }
 
 </script>
