@@ -523,6 +523,20 @@ body.av-restricted-mode .bt-dd,body.av-restricted-mode .bt-grassi,body.av-restri
     <div class="lock-waiting-spinner"></div>
     <div id="ls_waiting_text">Waiting for approval…</div>
   </div>
+  <!-- 2026-08-08: iOS Home-Screen-first gate. A device-approval request is created (and its PIN
+       stored) the moment someone gets through PIN setup - and on iOS, a plain Safari tab and an
+       installed Home Screen icon for the SAME URL are two completely separate storage contexts
+       (separate localStorage, separate anonymous Firebase Auth session). If someone is allowed to
+       set a PIN in a bare Safari tab first, then later adds the icon to their Home Screen, that
+       becomes a SECOND device as far as this app can tell - a second PIN, a second access
+       request Michele has to approve, and confusion about which one is "really" approved. This
+       screen heads that off: on iOS, before any PIN has ever been created here, if we're not
+       already running from the installed Home Screen icon, stop and ask for that first. See
+       init IIFE below for the gate condition. -->
+  <div class="ls-name-wrap" id="ls_a2hs_wrap" style="display:none;text-align:center;">
+    <div style="font-size:15px;color:#fff;line-height:1.5;margin-bottom:14px;">Add this to your Home Screen first, then open it from there — that keeps this device's login in one place.</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;text-align:left;max-width:280px;margin:0 auto;">1. Tap the <strong>Share</strong> icon in Safari's toolbar<br>2. Tap <strong>Add to Home Screen</strong><br>3. Open <strong>Design Driven</strong> from the new icon on your Home Screen (not from Safari)</div>
+  </div>
 </div>
 
 <script>
@@ -672,9 +686,28 @@ async function ppFaceId(){
     _checkAccessThenUnlock();
   }catch(e){_setErr('Face ID failed — use PIN');}
 }
+// iOS Home-Screen-first detection - see the ls_a2hs_wrap comment above for why this exists.
+// _isStandalone covers both the documented iOS Safari property (window.navigator.standalone)
+// and the standard media-query (works in installed PWAs generally, kept as a fallback).
+function _isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent||'') && !window.MSStream; }
+function _isStandalone(){ return window.navigator.standalone===true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }
+function _showAddToHomeScreen(){
+  _hidePinUI();
+  var w=_g('ls_name_wrap');if(w)w.style.display='none';
+  var lw=_g('ls_waiting');if(lw)lw.style.display='none';
+  _setSub('One more step');_setLbl('');_setErr('');
+  var a=_g('ls_a2hs_wrap');if(a)a.style.display='block';
+}
 /* Init immediately */
 (function(){
   var stored=localStorage.getItem(_PKEY),cid=localStorage.getItem(_CKEY);
+  // Gate ONLY the very first run on this device (no PIN saved yet) - once someone has a PIN,
+  // treat them as already onboarded regardless of how they got here, so nobody who set this up
+  // before today gets interrupted. Desktop/Mac/Android are untouched (_isIOS() is false there).
+  if(!stored&&_isIOS()&&!_isStandalone()){
+    _showAddToHomeScreen();
+    return;
+  }
   if(stored&&!localStorage.getItem(_AKEY)){
     // Device already had a PIN before this approval-gate feature existed — grandfather it
     // in so nobody (Michele included) gets locked out of a device they already set up.
@@ -7332,9 +7365,16 @@ function avRenderTeamAdmin(){
     var rows = [];
     snap.forEach(function(doc){ rows.push(Object.assign({uid:doc.id}, doc.data())); });
     if (!rows.length) { root.innerHTML = '<div class="empty" style="margin-top:20px;"><p>No team members yet. Tap + Add to create the first one.</p></div>'; return; }
+    // 2026-08-08, at Michele's request: Deactivate only ever hid someone from signing in again -
+    // it never removed them from this list, which isn't what "delete" means to Michele. Added a
+    // real, permanent delete alongside it. Owner-only (matches the Firestore 'users' collection's
+    // delete rule, which is stricter than login_directory's - a manager can create/deactivate
+    // team members but was never allowed to delete one, so the button simply isn't shown to them).
+    var _isOwnerAdmin = avCurrentUser && avCurrentUser.role==='owner';
     root.innerHTML = rows.map(function(p){
       var isActive = p.active !== false;
-      return '<div class="contact-card"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="cc-name">' + p.name + '</div><div class="cc-role">' + (p.role||'') + (isActive?'':' · inactive') + '</div></div><button onclick="toggleTeamMemberActive(\'' + p.uid + '\',' + (isActive?'false':'true') + ')" style="background:none;border:1px solid var(--line);border-radius:var(--rs);padding:6px 12px;font-size:12px;font-weight:600;color:' + (isActive?'#C62828':'#2E7D32') + ';cursor:pointer;">' + (isActive?'Deactivate':'Reactivate') + '</button></div></div>';
+      var _safeName=(p.name||'').replace(/'/g,"\\'");
+      return '<div class="contact-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="min-width:0;"><div class="cc-name">' + p.name + '</div><div class="cc-role">' + (p.role||'') + (isActive?'':' · inactive') + '</div></div><div style="display:flex;gap:6px;flex-shrink:0;"><button onclick="toggleTeamMemberActive(\'' + p.uid + '\',' + (isActive?'false':'true') + ')" style="background:none;border:1px solid var(--line);border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:' + (isActive?'#C62828':'#2E7D32') + ';cursor:pointer;">' + (isActive?'Deactivate':'Reactivate') + '</button>'+(_isOwnerAdmin?('<button onclick="avDeleteTeamMember(\''+p.uid+'\',\''+_safeName+'\')" title="Delete permanently" style="background:none;border:1px solid #C62828;border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;color:#C62828;cursor:pointer;">🗑</button>'):'')+'</div></div></div>';
     }).join('');
   }).catch(function(e){
     root.innerHTML = '<div class="empty" style="margin-top:20px;"><p>Could not load team list.</p></div>';
@@ -7507,6 +7547,21 @@ function toggleTeamMemberActive(uid, makeActive){
   batch.update(avDb.collection('users').doc(uid), updates);
   batch.update(avDb.collection('login_directory').doc(uid), updates);
   batch.commit().then(function(){ showToast('Updated ✓'); avRenderTeamAdmin(); }).catch(function(e){ showToast('Failed to update'); console.error(e); });
+}
+// Owner-only, permanent - removes both records that make this person findable/signable-in
+// (login_directory, which powers the name picker on the Team Sign In screen, and users, which
+// is what onAuthStateChanged reads to establish role/access). This does not delete the
+// underlying Firebase Auth account itself (no client-side way to do that without them being
+// signed in), but with both directory docs gone they cannot appear in the sign-in list, cannot
+// establish a role, and disappear from this admin list - functionally fully removed. If this
+// person needs access again later, create a fresh account for them the normal way.
+function avDeleteTeamMember(uid, name){
+  if(!avCurrentUser||avCurrentUser.role!=='owner'){ showToast('Only the owner can delete a team member'); return; }
+  if(!confirm('Permanently delete '+(name||'this person')+'? This removes them from the list entirely and cannot be undone - if they need access again, you\'ll need to create a new account for them.')) return;
+  var batch = avDb.batch();
+  batch.delete(avDb.collection('users').doc(uid));
+  batch.delete(avDb.collection('login_directory').doc(uid));
+  batch.commit().then(function(){ showToast('Deleted ✓'); avRenderTeamAdmin(); }).catch(function(e){ showToast('Failed to delete'); console.error('AV team member delete failed', e); });
 }
 
 </script>
