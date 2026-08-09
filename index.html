@@ -4310,7 +4310,7 @@ function addProjectToAvantgarde(id){
 // the whole line, same as before, using the same narrow proximity check.
 var AV_MONEY_RE=/(?:£|€|\$|\bEUR\b|\bGBP\b|\bUSD\b)\s?\d[\d,]*(?:\.\d{1,2})?/gi;
 var AV_INVOICE_REF_RE=/\b(?:invoice|proforma|order(?:\s+ref(?:erence)?)?|PO)\s*#?\s*\d[\d\/\-]*\b/gi;
-var AV_MARKER_ONLY_RE=/\b(saldo|balance due|advance payment|cash-?flow|VAT|payment terms|outstanding|order value|quotation|quote)\b/i;
+var AV_MARKER_ONLY_RE=/\b(saldo|balance due|advance payment|cash-?flow|VAT|payment terms|outstanding|order value|quotation|quote|commission)\b/i;
 var AV_KEEP_SIGNAL_RE=/installation rate|install(?:ation)? cost|day rate|labour cost|crew rate|installer rate/i;
 var AV_KEEP_WINDOW=45;
 function _avLocalKeepOk(str,idx,len){
