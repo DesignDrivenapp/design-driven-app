@@ -6360,19 +6360,22 @@ function avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller){
   // anything into it from any Grassi/Friul correspondence, whether or not Avantgarde was ever
   // on that email, so there's no way to know it's safe.
   var manualHtml=notes?avFormatNotes(avStripSupplierValues(notes)):'<div style="color:var(--sub);">—</div>';
-  // avAutoLog entries are different: they are ONLY ever written by the Next-Action email-sync
-  // scheduled task (trig_01DHK3z3fQerrA6gMgrxxdTy), which is hard-coded to search Gmail with a
-  // query that requires an @avantgarde-tiling.com participant on the message (to/cc/from) before
-  // it will ever turn a thread into an entry - see that trigger's "Critical privacy rule for
-  // Avantgarde" step. So by construction, anything that lands here was already sent to, copied
-  // to, or received from someone at Avantgarde in their own inbox - stripping it again achieves
-  // nothing except hiding information from them that they already have. Per Michele, 2026-08-07:
-  // "the manager should be able to see notes that belong to them (when avantgarde is in copy,
-  // writes, or receive an email)". Kept a source guard (only skip stripping when source is
-  // exactly 'email-sync', the one path with that domain guarantee) so any future entry written
-  // a different way still gets the safe default.
-  var autoHtml=autoLog.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+autoLog.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(e){
-    var _txt=(e.source==='email-sync')?(e.text||''):avStripSupplierValues(e.text||'');
+  // avAutoLog entries: previously left unstripped when source==='email-sync' (Per Michele,
+  // 2026-08-07: "the manager should be able to see notes that belong to them"), on the reasoning
+  // that anything here was already sent to/copied to/received from Avantgarde in their own inbox,
+  // so stripping again achieved nothing. Reversed 2026-08-09 at Michele's explicit request after
+  // a commission percentage from an Avantgarde-sourced email surfaced here unstripped (Thornhill
+  // Square, 2026-07-28 entry) - now always stripped regardless of source, same as the manual
+  // Notes field above, no exception.
+  // 2026-08-09: an entry that strips down to nothing (e.g. a whole line wiped because it
+  // mentioned "commission") is filtered out of the list entirely here, rather than rendered as
+  // a bullet with a bold date and no text after it - Michele already flagged that exact "date:
+  // (blank)" look as a bug once (Store Holdings/Thornhill Square empty entries, 2026-08-08) and
+  // doesn't need a second version of it caused a different way. Nothing is deleted from
+  // Firestore by this - it's just not shown when there's nothing safe left to show.
+  var _autoVisible=autoLog.filter(function(e){ return (avStripSupplierValues(e.text||'')||'').trim().length>0; });
+  var autoHtml=_autoVisible.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+_autoVisible.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(e){
+    var _txt=avStripSupplierValues(e.text||'');
     return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+_txt+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
   }).join('')+'</ul></div>'):'';
   return '<div style="margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--rs);padding:12px;"><div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Instructions</div><div style="font-size:13px;color:var(--dark);line-height:1.5;">'+manualHtml+'</div>'+autoHtml+'</div>';
