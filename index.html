@@ -6371,7 +6371,7 @@ function avNotesBlockHtml(jobId,notes,autoLog,hideFromInstaller){
   // writes, or receive an email)". Kept a source guard (only skip stripping when source is
   // exactly 'email-sync', the one path with that domain guarantee) so any future entry written
   // a different way still gets the safe default.
-  var autoHtml=autoLog.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+autoLog.map(function(e){
+  var autoHtml=autoLog.length?('<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"><div style="font-size:10px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📧 Auto-added from email</div><ul style="margin:0;padding-left:18px;">'+autoLog.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(e){
     var _txt=(e.source==='email-sync')?(e.text||''):avStripSupplierValues(e.text||'');
     return '<li style="margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><span>'+(e.date?'<strong>'+e.date+':</strong> ':'')+_txt+'</span>'+(isOwner?('<button onclick="avDeleteAutoLogEntry(\''+jobId+'\',\''+e.id+'\')" title="Remove this entry" style="background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">×</button>'):'')+'</li>';
   }).join('')+'</ul></div>'):'';
