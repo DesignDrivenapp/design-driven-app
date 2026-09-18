@@ -790,6 +790,7 @@ function _showAddToHomeScreen(){
     <div class="chip active" onclick="filterProjects('all',this)">All</div>
     <div class="chip" onclick="filterProjects('live-projects',this)">Live</div>
     <div class="chip" onclick="filterProjects('live-quotes',this)">Quotes</div>
+    <div class="chip" onclick="filterProjects('leads',this)">Leads</div>
     <div class="chip" onclick="filterProjects('Grassi Pietre',this)">Grassi</div>
     <div class="chip" onclick="filterProjects('Friul Mosaic',this)">Friul</div>
     <div class="chip" onclick="filterProjects('Agape',this)">Agape</div>
@@ -980,21 +981,25 @@ function _showAddToHomeScreen(){
   </div>
   <div class="content-list">
     <div class="sub-grid" style="padding:16px 0 8px;">
-      <div class="sub-tile" onclick="navGrassiFolder('all')" style="border-top:3px solid var(--gold);">
+      <div class="sub-tile" onclick="navGrassiFolder('all')" style="border-top:3px solid var(--gold);grid-column:1/-1;">
         <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
         <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="gf-all-count">View everything</div>
       </div>
+      <div class="sub-tile" onclick="navGrassiFolder('leads')" style="border-top:3px solid #7B6FB0;">
+        <div class="sub-icon" style="background:#EFEDF7;font-size:22px;">🌱</div>
+        <div class="sub-tile-name">Leads</div><div class="sub-tile-desc" id="gf-leads-count">Lead · Enquiry</div>
+      </div>
       <div class="sub-tile" onclick="navGrassiFolder('live-quotes')" style="border-top:3px solid #F5821E;">
         <div class="sub-icon" style="background:#FEF0E6;font-size:22px;">💬</div>
-        <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="gf-quotes-count">Enquiry · Quoted</div>
+        <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="gf-quotes-count">Samples · Quoted</div>
       </div>
       <div class="sub-tile" onclick="navGrassiFolder('live-projects')" style="border-top:3px solid var(--grassi);">
         <div class="sub-icon" style="background:#F5EEE1;font-size:22px;">🏗️</div>
-        <div class="sub-tile-name">Live Projects</div><div class="sub-tile-desc" id="gf-live-count">Confirmed · In Production</div>
+        <div class="sub-tile-name">Live Projects</div><div class="sub-tile-desc" id="gf-live-count">Confirmed → Snagging</div>
       </div>
       <div class="sub-tile" onclick="navGrassiFolder('completed')" style="border-top:3px solid #2E7D32;">
         <div class="sub-icon" style="background:#E8F5E9;font-size:22px;">✅</div>
-        <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="gf-completed-count">Delivered</div>
+        <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="gf-completed-count">Delivered · Invoiced</div>
       </div>
     </div>
   </div>
@@ -1297,21 +1302,25 @@ function _showAddToHomeScreen(){
   </div>
   <div class="content-list">
     <div class="sub-grid" style="padding:16px 0 8px;">
-      <div class="sub-tile" onclick="navFriulFolder('all')" style="border-top:3px solid var(--gold);">
+      <div class="sub-tile" onclick="navFriulFolder('all')" style="border-top:3px solid var(--gold);grid-column:1/-1;">
         <div class="sub-icon" style="background:var(--gold-light);font-size:22px;">📋</div>
         <div class="sub-tile-name">All</div><div class="sub-tile-desc" id="ff-all-count">View everything</div>
       </div>
+      <div class="sub-tile" onclick="navFriulFolder('leads')" style="border-top:3px solid #7B6FB0;">
+        <div class="sub-icon" style="background:#EFEDF7;font-size:22px;">🌱</div>
+        <div class="sub-tile-name">Leads</div><div class="sub-tile-desc" id="ff-leads-count">Lead · Enquiry</div>
+      </div>
       <div class="sub-tile" onclick="navFriulFolder('live-quotes')" style="border-top:3px solid #F5821E;">
         <div class="sub-icon" style="background:#FEF0E6;font-size:22px;">💬</div>
-        <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="ff-quotes-count">Enquiry · Quoted</div>
+        <div class="sub-tile-name">Quotes</div><div class="sub-tile-desc" id="ff-quotes-count">Samples · Quoted</div>
       </div>
       <div class="sub-tile" onclick="navFriulFolder('live-projects')" style="border-top:3px solid var(--friul);">
         <div class="sub-icon" style="background:#E8F5F0;font-size:22px;">🎨</div>
-        <div class="sub-tile-name">Live Projects</div><div class="sub-tile-desc" id="ff-live-count">Confirmed · In Production</div>
+        <div class="sub-tile-name">Live Projects</div><div class="sub-tile-desc" id="ff-live-count">Confirmed → Snagging</div>
       </div>
       <div class="sub-tile" onclick="navFriulFolder('completed')" style="border-top:3px solid #2E7D32;">
         <div class="sub-icon" style="background:#E8F5E9;font-size:22px;">✅</div>
-        <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="ff-completed-count">Delivered</div>
+        <div class="sub-tile-name">Completed</div><div class="sub-tile-desc" id="ff-completed-count">Delivered · Invoiced</div>
       </div>
     </div>
   </div>
@@ -1844,7 +1853,7 @@ function _showAddToHomeScreen(){
           <select class="fs" id="f-brand"><option value="">Select…</option><option>Grassi Pietre</option><option>Friul Mosaic</option><option>Agape</option><option>Multiple</option></select>
         </div>
         <div class="fg"><label class="fl">Stage *</label>
-          <select class="fs" id="f-stage"><option>Enquiry</option><option>Sample Sent</option><option>Quoted</option><option>Confirmed</option><option>In Production</option><option>Delivered</option></select>
+          <select class="fs" id="f-stage"><option>Lead</option><option>Enquiry</option><option>Specification</option><option>Sample Sent</option><option>Quoted</option><option>Confirmed</option><option>In Production</option><option>Ready to Ship</option><option>Snagging</option><option>Delivered</option><option>Invoiced</option><option>Completed</option></select>
         </div>
       </div>
       <div class="fg"><label class="fl">Client Name *</label><input class="fi" id="f-client" placeholder="e.g. Sarah Henderson, DBSJ"></div>
@@ -3228,14 +3237,17 @@ function deleteSample(){
 }
 
 // ── FILTER PROJECTS (for dd-projects screen) ──────────────────────────────
-const FILTER_MAP={"live-quotes":["Enquiry","Sample Sent","Quoted"],"live-projects":["Confirmed","In Production"],"completed":["Delivered"]};
+// @@STAGE-FOLDERS@@ 2026-09-18 — every stage now belongs to exactly one folder; any unknown/new stage falls back to Leads so nothing ever disappears
+const FILTER_MAP={"leads":["Lead","Enquiry","Specification"],"live-quotes":["Sample Sent","Quoted"],"live-projects":["Confirmed","In Production","Ready to Ship","Snagging"],"completed":["Delivered","Invoiced","Completed"]};
+const ALL_KNOWN_STAGES=[].concat(FILTER_MAP.leads,FILTER_MAP["live-quotes"],FILTER_MAP["live-projects"],FILTER_MAP.completed);
+function inFolder(p,f){if(!FILTER_MAP[f])return true;if(FILTER_MAP[f].includes(p.stage))return true;return f==="leads"&&!ALL_KNOWN_STAGES.includes(p.stage);}
 
 function filterProjects(f,el){
   document.querySelectorAll("#projectsFilterRow .chip").forEach(c=>c.classList.remove("active"));
   if(el) el.classList.add("active");
   function avAsProjects(){return(typeof avJobs!=="undefined"?avJobs:[]).map(j=>({id:j.id,name:j.name,client:j.client||"",brand:"Avantgarde",stage:j.status||"Upcoming",nextAction:j.location||"",_isAvJob:true}));}
   if(f==="Avantgarde"){renderProjects(avAsProjects(),"projectsList",f);return;}
-  let filtered=f==="all"?projects:FILTER_MAP[f]?projects.filter(p=>FILTER_MAP[f].includes(p.stage)):projects.filter(p=>p.brand===f);
+  let filtered=f==="all"?projects:FILTER_MAP[f]?projects.filter(p=>inFolder(p,f)):projects.filter(p=>p.brand===f);
   if(f==="all") filtered=filtered.concat(avAsProjects());
   renderProjects(filtered,"projectsList",f);
 }
@@ -3265,22 +3277,23 @@ function openGrassiProjectFolders(){
   currentBrandCtx="Grassi Pietre";
   const g=projects.filter(p=>p.brand==="Grassi Pietre");
   const el=id=>document.getElementById(id);
-  if(el("gf-quotes-count")) el("gf-quotes-count").textContent=g.filter(p=>["Enquiry","Sample Sent","Quoted"].includes(p.stage)).length+" projects";
-  if(el("gf-live-count"))   el("gf-live-count").textContent=g.filter(p=>["Confirmed","In Production"].includes(p.stage)).length+" projects";
-  if(el("gf-completed-count")) el("gf-completed-count").textContent=g.filter(p=>p.stage==="Delivered").length+" projects";
+  if(el("gf-leads-count"))  el("gf-leads-count").textContent=g.filter(p=>inFolder(p,"leads")).length+" projects";
+  if(el("gf-quotes-count")) el("gf-quotes-count").textContent=g.filter(p=>inFolder(p,"live-quotes")).length+" projects";
+  if(el("gf-live-count"))   el("gf-live-count").textContent=g.filter(p=>inFolder(p,"live-projects")).length+" projects";
+  if(el("gf-completed-count")) el("gf-completed-count").textContent=g.filter(p=>inFolder(p,"completed")).length+" projects";
   if(el("gf-all-count"))    el("gf-all-count").textContent=g.length+" total";
   nav("grassi-project-folders");
 }
 
 function navGrassiFolder(filter){
   currentBrandCtx="Grassi Pietre";
-  document.getElementById("brand-proj-title").textContent=filter==="live-quotes"?"Grassi — Quotes":filter==="live-projects"?"Grassi — Live":filter==="completed"?"Grassi — Completed":"Grassi — All";
+  document.getElementById("brand-proj-title").textContent=filter==="leads"?"Grassi — Leads":filter==="live-quotes"?"Grassi — Quotes":filter==="live-projects"?"Grassi — Live":filter==="completed"?"Grassi — Completed":"Grassi — All";
   document.getElementById("brand-proj-back").textContent="← Grassi Projects";
   document.getElementById("brand-proj-back").onclick=()=>nav("grassi-project-folders");
   document.getElementById("brand-proj-add").onclick=()=>openAddProject("Grassi Pietre");
   nav("brand-projects");
   const g=projects.filter(p=>p.brand==="Grassi Pietre");
-  const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>FILTER_MAP[filter].includes(p.stage)):g;
+  const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>inFolder(p,filter)):g;
   renderQuotesValueGraph(PROJ_VALUE_GRAPH_LABELS[filter]?filtered:null,"#C4956A",PROJ_VALUE_GRAPH_LABELS[filter]);
   renderProjects(filtered,"brandProjectsList",filter);
 }
@@ -3353,11 +3366,11 @@ function goToFilter(filter){
   // activate the correct chip and render
   const chips=document.querySelectorAll("#projectsFilterRow .chip");
   chips.forEach(c=>c.classList.remove("active"));
-  const labels={"all":0,"live-quotes":1,"live-projects":2,"completed":3};
+  const labels={"all":0,"live-projects":1,"live-quotes":2,"leads":3};
   if(chips[labels[filter]]) chips[labels[filter]].classList.add("active");
   let filtered;
   if(filter==="all") filtered=projects;
-  else if(FILTER_MAP[filter]) filtered=projects.filter(p=>FILTER_MAP[filter].includes(p.stage));
+  else if(FILTER_MAP[filter]) filtered=projects.filter(p=>inFolder(p,filter));
   else filtered=projects;
   renderProjects(filtered,"projectsList",filter);
 }
@@ -3377,8 +3390,8 @@ function navBrandProjects(brand){
 // ── STATS ─────────────────────────────────────────────────────────────────
 function updateStats(){
   document.getElementById("st-total").textContent=projects.length;
-  document.getElementById("st-active").textContent=projects.filter(p=>["Confirmed","In Production"].includes(p.stage)).length;
-  document.getElementById("st-fu").textContent=projects.filter(p=>["Enquiry","Sample Sent","Quoted"].includes(p.stage)).length;
+  document.getElementById("st-active").textContent=projects.filter(p=>inFolder(p,"live-projects")).length;
+  document.getElementById("st-fu").textContent=projects.filter(p=>inFolder(p,"live-quotes")).length;
   // Update stat labels to match new categories
   const labels=document.querySelectorAll(".stat-l");
   if(labels[1]) labels[1].textContent="Live Projects";
@@ -3397,7 +3410,7 @@ function setFilter(f,el){
   el.classList.add("active");
   let filtered;
   if(f==="all") filtered=projects;
-  else if(FILTER_MAP[f]) filtered=projects.filter(p=>FILTER_MAP[f].includes(p.stage));
+  else if(FILTER_MAP[f]) filtered=projects.filter(p=>inFolder(p,f));
   else filtered=projects.filter(p=>p.brand===f||p.stage===f);
   renderProjects(filtered,"projectsList",f);
 }
@@ -4386,9 +4399,9 @@ function sendDailyBriefing(){
   const dateStr = today.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 
   // Active projects (not delivered)
-  const active = projects.filter(p=>p.stage!=="Delivered"&&p.name!=="Design Driven App");
-  const liveQuotes = active.filter(p=>["Enquiry","Sample Sent","Quoted"].includes(p.stage));
-  const liveProjects = active.filter(p=>["Confirmed","In Production"].includes(p.stage));
+  const active = projects.filter(p=>!inFolder(p,"completed")&&p.name!=="Design Driven App");
+  const liveQuotes = active.filter(p=>inFolder(p,"live-quotes")||inFolder(p,"leads"));
+  const liveProjects = active.filter(p=>inFolder(p,"live-projects"));
 
   let body = `Design Driven — Daily Project Briefing\n${dateStr}\n`;
   body += `${"─".repeat(48)}\n\n`;
@@ -4788,21 +4801,22 @@ function openFriulProjectFolders(){
   currentBrandCtx="Friul Mosaic";
   const g=projects.filter(p=>p.brand==="Friul Mosaic");
   const el=id=>document.getElementById(id);
-  if(el("ff-quotes-count")) el("ff-quotes-count").textContent=g.filter(p=>["Enquiry","Sample Sent","Quoted"].includes(p.stage)).length+" projects";
-  if(el("ff-live-count"))   el("ff-live-count").textContent=g.filter(p=>["Confirmed","In Production"].includes(p.stage)).length+" projects";
-  if(el("ff-completed-count")) el("ff-completed-count").textContent=g.filter(p=>p.stage==="Delivered").length+" projects";
+  if(el("ff-leads-count"))  el("ff-leads-count").textContent=g.filter(p=>inFolder(p,"leads")).length+" projects";
+  if(el("ff-quotes-count")) el("ff-quotes-count").textContent=g.filter(p=>inFolder(p,"live-quotes")).length+" projects";
+  if(el("ff-live-count"))   el("ff-live-count").textContent=g.filter(p=>inFolder(p,"live-projects")).length+" projects";
+  if(el("ff-completed-count")) el("ff-completed-count").textContent=g.filter(p=>inFolder(p,"completed")).length+" projects";
   if(el("ff-all-count"))    el("ff-all-count").textContent=g.length+" total";
   nav("friul-project-folders");
 }
 function navFriulFolder(filter){
   currentBrandCtx="Friul Mosaic";
-  document.getElementById("brand-proj-title").textContent=filter==="live-quotes"?"Friul — Quotes":filter==="live-projects"?"Friul — Live":filter==="completed"?"Friul — Completed":"Friul — All";
+  document.getElementById("brand-proj-title").textContent=filter==="leads"?"Friul — Leads":filter==="live-quotes"?"Friul — Quotes":filter==="live-projects"?"Friul — Live":filter==="completed"?"Friul — Completed":"Friul — All";
   document.getElementById("brand-proj-back").textContent="← Friul Projects";
   document.getElementById("brand-proj-back").onclick=()=>nav("friul-project-folders");
   document.getElementById("brand-proj-add").onclick=()=>openAddProject("Friul Mosaic");
   nav("brand-projects");
   const g=projects.filter(p=>p.brand==="Friul Mosaic");
-  const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>FILTER_MAP[filter].includes(p.stage)):g;
+  const filtered=filter==="all"?g:FILTER_MAP[filter]?g.filter(p=>inFolder(p,filter)):g;
   renderQuotesValueGraph(PROJ_VALUE_GRAPH_LABELS[filter]?filtered:null,"#1D9E75",PROJ_VALUE_GRAPH_LABELS[filter]);
   renderProjects(filtered,"brandProjectsList",filter);
 }
@@ -5163,6 +5177,7 @@ function renderQuotesValueGraph(list,color,labels){
 
 // @@PROJ-VALUE-GRAPH-LABELS@@ shared per-filter wording so Quotes/Live/Completed all read naturally
 var PROJ_VALUE_GRAPH_LABELS={
+  'leads':{totalCardLbl:'Leads Value',countLbl:'Leads',footerLbl:'Total estimated'},
   'live-quotes':{totalCardLbl:'Total Quoted',countLbl:'Quotes',footerLbl:'Total quoted'},
   'live-projects':{totalCardLbl:'Total Value',countLbl:'Projects',footerLbl:'Total value'},
   'completed':{totalCardLbl:'Total Completed',countLbl:'Projects',footerLbl:'Total completed'}
